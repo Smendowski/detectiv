@@ -1,0 +1,92 @@
+[build-system]
+requires = ["uv_build>=0.12.11,<0.13"]
+build-backend = "uv_build"
+
+[project]
+name = "detectiv"
+version = "0.1.0"
+description = "A Python library for time-series anomaly detection using image representations."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+  { name = "Mateusz Smendowski", email = "m.smendowski@gmail.com" },
+]
+keywords = [
+  "anomaly-detection",
+  "machine-learning",
+  "time-series",
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[dependency-groups]
+test = [
+  "coverage[toml]>=7.10",
+  "hypothesis>=6.138",
+  "pytest>=8.4",
+]
+lint = [
+  "mypy>=1.17",
+  "prek>=0.2",
+  "ruff>=0.12",
+]
+docs = [
+  "myst-parser>=4.0",
+  "numpydoc>=1.9",
+  "pydata-sphinx-theme>=0.16",
+  "sphinx>=8.2",
+  "sphinx-autodoc-typehints>=3.2",
+  "sphinx-copybutton>=0.5",
+]
+dev = [
+  { include-group = "test" },
+  { include-group = "lint" },
+  { include-group = "docs" },
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+extend-exclude = ["docs/_build"]
+
+[tool.ruff.lint]
+select = ["B", "E", "F", "I", "PERF", "RUF", "SIM", "UP"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+addopts = [
+  "--import-mode=importlib",
+  "--strict-config",
+  "--strict-markers",
+]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["detectiv"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_also = ["if TYPE_CHECKING:"]
