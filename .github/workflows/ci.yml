@@ -19,7 +19,6 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         with:
           version: "0.12.11"
-          enable-cache: true
       - run: uv sync --locked --all-groups
       - run: uv run ruff check .
       - run: uv run ruff format --check .
@@ -40,7 +39,6 @@ jobs:
         with:
           version: "0.12.11"
           python-version: ${{ matrix.python-version }}
-          enable-cache: true
       - run: uv sync --locked --no-default-groups --group test
       - run: uv run coverage run -m pytest
       - run: uv run coverage report
@@ -55,7 +53,6 @@ jobs:
         with:
           version: "0.12.11"
           python-version: "3.12"
-          enable-cache: true
       - run: uv build --no-sources
       - name: Verify wheel contents and isolated import
         run: |
