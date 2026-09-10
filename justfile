@@ -16,7 +16,7 @@ lint:
     uv run ruff format --check .
 
 typecheck:
-    uv run mypy src tests
+    uv run mypy src tests scenarios
 
 test:
     uv run coverage erase
@@ -24,7 +24,7 @@ test:
     uv run coverage report
 
 docs:
-    uv run sphinx-build --fail-on-warning --keep-going -b html docs docs/_build/html
+    uv run mkdocs build --strict
 
 build:
     uv build --no-sources

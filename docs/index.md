@@ -1,12 +1,3 @@
-# DETECTIV
+# Detectiv
 
-DETECTIV is under active development.
-
-```{toctree}
-:maxdepth: 2
-:hidden:
-
-installation
-development
-api
-```
+Detectiv is a Python library for time-series anomaly detection using image representations.

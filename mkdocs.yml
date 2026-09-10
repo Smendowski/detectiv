@@ -1,0 +1,33 @@
+site_name: Detectiv
+site_description: Time-series anomaly detection using image representations
+repo_url: https://github.com/Smendowski/detectiv
+repo_name: Smendowski/detectiv
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - toc:
+      permalink: true
+
+nav:
+  - Overview: index.md
+  - Installation: installation.md
+  - Design: design.md
+  - API: api.md
+  - Development: development.md
