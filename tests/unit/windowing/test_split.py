@@ -1,6 +1,6 @@
 import pytest
 
-from detectiv import SplitPart, SplitWindowing, WindowSpec
+from detectiv.windowing import SplitPart, SplitWindowing, WindowSpec
 
 
 def test_split_windowing_returns_the_spec_for_each_partition() -> None:

@@ -2,9 +2,9 @@ import numpy as np
 from hypothesis import given
 from hypothesis import strategies as st
 
-from detectiv import (
+from detectiv.data import TimeSeries
+from detectiv.windowing import (
     TailPolicy,
-    TimeSeries,
     Windower,
     WindowLabelingStrategy,
     WindowMode,

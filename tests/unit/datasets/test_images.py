@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from detectiv import ImageDataset, ImageShape, ImageSource, WindowReference
+from detectiv.data import WindowReference
+from detectiv.datasets import ImageDataset, ImageShape, ImageSource
 
 
 class CountingImageSource(ImageSource):

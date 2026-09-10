@@ -1,6 +1,8 @@
 import numpy as np
 
-from detectiv import MSM, PCA, TimeSeries, TimeSeriesDataset
+from detectiv.data import TimeSeries
+from detectiv.datasets import TimeSeriesDataset
+from detectiv.ts2i.channelization import MSM, PCA
 
 
 def test_msm_creates_mean_standard_deviation_and_maximum_channels() -> None:

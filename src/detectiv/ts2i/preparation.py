@@ -7,6 +7,7 @@ from detectiv.datasets import (
     TemporalSplitter,
     TimeSeriesDataset,
 )
+from detectiv.preprocessing import TimeSeriesPreprocessor
 from detectiv.ts2i.generated import GeneratedImageSource
 from detectiv.ts2i.projection import ProjectionStrategy
 from detectiv.windowing import SplitPart, SplitWindowing, WindowSpec
@@ -18,6 +19,7 @@ class ImagePreparation:
     _splitter: TemporalSplitter | None = None
     _windowing: SplitWindowing | None = None
     _projection: ProjectionStrategy | None = None
+    _preprocessor: TimeSeriesPreprocessor | None = None
 
     def split(self, splitter: TemporalSplitter) -> "ImagePreparation":
         return replace(self, _splitter=splitter)
@@ -37,6 +39,9 @@ class ImagePreparation:
     def project(self, projection: ProjectionStrategy) -> "ImagePreparation":
         return replace(self, _projection=projection)
 
+    def preprocess(self, preprocessor: TimeSeriesPreprocessor) -> "ImagePreparation":
+        return replace(self, _preprocessor=preprocessor)
+
     def build(
         self, size: tuple[int, int], *, seed: int = 0
     ) -> TemporalSplit[ImageDataset]:
@@ -44,6 +49,7 @@ class ImagePreparation:
         windowing = self._required("windowing", self._windowing)
         projection = self._required("projection strategy", self._projection)
         split = self.dataset.split(splitter)
+        split = self._preprocess(split, self._preprocessor)
         projection.fit(split.train)
 
         validation = None
@@ -71,6 +77,23 @@ class ImagePreparation:
                 size,
                 seed,
             ),
+        )
+
+    @staticmethod
+    def _preprocess(
+        split: TemporalSplit[TimeSeriesDataset],
+        preprocessor: TimeSeriesPreprocessor | None = None,
+    ) -> TemporalSplit[TimeSeriesDataset]:
+        if preprocessor is None:
+            return split
+        preprocessor.fit(split.train)
+        validation = None
+        if split.validation is not None:
+            validation = preprocessor.transform(split.validation)
+        return TemporalSplit(
+            train=preprocessor.transform(split.train),
+            validation=validation,
+            test=preprocessor.transform(split.test),
         )
 
     @staticmethod

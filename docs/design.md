@@ -115,6 +115,7 @@ classDiagram
 images = (
     ImagePreparation(dataset)
     .split(TemporalSplitter({"series": TemporalBoundary(train_end)}))
+    .preprocess(MinMaxScaling())
     .window(
         train=WindowSpec(
             64,
@@ -127,7 +128,9 @@ images = (
     )
     .project(
         FixedProjectionStrategy(
-            ProjectionScheme(Identity()).channels(RandomNoise()).replicate(n_channels=3)
+            ProjectionScheme(IdentityChannelization())
+            .channels(RandomNoise())
+            .replicate(n_channels=3)
         )
     )
     .build(size=(64, 64))

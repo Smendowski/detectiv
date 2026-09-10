@@ -1,6 +1,7 @@
 import numpy as np
 
-from detectiv import TemporalBoundary, TemporalSplitter, TimeSeries, TimeSeriesDataset
+from detectiv.data import TimeSeries
+from detectiv.datasets import TemporalBoundary, TemporalSplitter, TimeSeriesDataset
 
 
 def test_dataset_is_split_per_series_in_temporal_order() -> None:

@@ -3,19 +3,20 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from detectiv import (
-    FixedProjectionStrategy,
-    Identity,
+from detectiv.data import TimeSeries
+from detectiv.datasets import (
     ImageFolderWriter,
     ImageOutputConfig,
-    ImagePreparation,
-    ProjectionScheme,
-    RandomNoise,
-    TailPolicy,
     TemporalBoundary,
     TemporalSplitter,
-    TimeSeries,
     TimeSeriesDataset,
+)
+from detectiv.ts2i import ImagePreparation
+from detectiv.ts2i.channelization import IdentityChannelization
+from detectiv.ts2i.projection import FixedProjectionStrategy, ProjectionScheme
+from detectiv.ts2i.transformations import RandomNoise
+from detectiv.windowing import (
+    TailPolicy,
     WindowSpec,
 )
 
@@ -32,7 +33,9 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
         },
     )
     projection = FixedProjectionStrategy(
-        ProjectionScheme(Identity()).channels(RandomNoise()).replicate(n_channels=3)
+        ProjectionScheme(IdentityChannelization())
+        .channels(RandomNoise())
+        .replicate(n_channels=3)
     )
 
     images = (
@@ -76,7 +79,7 @@ def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(
             FixedProjectionStrategy(
-                ProjectionScheme(Identity())
+                ProjectionScheme(IdentityChannelization())
                 .channels(RandomNoise())
                 .replicate(n_channels=3)
             )

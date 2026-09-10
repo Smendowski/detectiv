@@ -24,3 +24,11 @@ class TS2ITransformation(ABC):
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:
         raise NotImplementedError
+
+
+def univariate_values(values: np.ndarray, transformation: str) -> np.ndarray:
+    if values.ndim == 1:
+        return values
+    if values.ndim == 2 and values.shape[1] == 1:
+        return values[:, 0]
+    raise ValueError(f"{transformation} requires one feature")

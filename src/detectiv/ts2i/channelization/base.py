@@ -16,7 +16,7 @@ class Channelization(ABC):
         raise NotImplementedError
 
 
-class Identity(Channelization):
+class IdentityChannelization(Channelization):
     def transform(self, window: np.ndarray) -> tuple[np.ndarray, ...]:
         return (window,)
 

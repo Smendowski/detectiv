@@ -32,7 +32,10 @@ dependencies = [
   "loguru>=0.7",
   "numpy>=2.2",
   "pillow>=11",
+  "pyts>=0.13",
+  "PyWavelets>=1.8",
   "scikit-learn>=1.7",
+  "scikit-image>=0.25",
 ]
 
 [dependency-groups]
@@ -75,7 +78,7 @@ strict = true
 files = ["src", "tests", "scenarios"]
 
 [[tool.mypy.overrides]]
-module = ["sklearn.*"]
+module = ["pyts.*", "pywt", "sklearn.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

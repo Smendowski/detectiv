@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from detectiv import TimeSeries
+from detectiv.data import TimeSeries
 
 
 def test_univariate_series_uses_a_single_feature() -> None:
