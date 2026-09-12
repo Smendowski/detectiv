@@ -14,6 +14,7 @@ from detectiv.ts2i.transformations.registry import register_transformation
 
 class WaveletOutputNormalization(StrEnum):
     NONE = "none"
+    CLIP_UNIT_INTERVAL = "clip_unit_interval"
     UNIT_INTERVAL = "unit_interval"
 
 
@@ -55,7 +56,9 @@ class _ContinuousWavelet(TS2ITransformation):
             anti_aliasing=True,
             preserve_range=True,
         ).astype(np.float32)
-        if self.output_normalization is WaveletOutputNormalization.UNIT_INTERVAL:
+        if self.output_normalization is WaveletOutputNormalization.CLIP_UNIT_INTERVAL:
+            image = np.clip(image, 0, 1)
+        elif self.output_normalization is WaveletOutputNormalization.UNIT_INTERVAL:
             image = (image - image.min()) / (image.max() - image.min() + 1e-8)
             image = np.clip(image, 0, 1)
         return np.asarray(image, dtype=np.float32)

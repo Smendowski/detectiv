@@ -36,6 +36,14 @@ dependencies = [
   "PyWavelets>=1.8",
   "scikit-learn>=1.7",
   "scikit-image>=0.25",
+  "torch>=2.14.0",
+  "statsmodels>=0.15.0",
+]
+
+[project.optional-dependencies]
+vision = [
+    "timm>=1.0.29",
+    "torchvision>=0.29.0",
 ]
 
 [dependency-groups]
@@ -64,7 +72,7 @@ default-groups = ["dev"]
 [tool.ruff]
 target-version = "py312"
 line-length = 88
-extend-exclude = ["site"]
+extend-exclude = ["external", "site"]
 
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "PERF", "RUF", "SIM", "UP"]
@@ -75,10 +83,10 @@ docstring-code-format = true
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests", "scenarios"]
+files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["pyts.*", "pywt", "sklearn.*"]
+module = ["pyts.*", "pywt", "sklearn.*", "statsmodels.*", "timm.*", "torchvision.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

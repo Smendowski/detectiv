@@ -1,0 +1,43 @@
+name: External dependency updates
+
+on:
+  schedule:
+    - cron: "23 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Compare pinned submodules with upstream
+        shell: bash
+        run: |
+          updates=0
+          echo "## External dependency updates" >> "$GITHUB_STEP_SUMMARY"
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo "| Submodule | Pinned | Upstream HEAD |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+
+          while IFS=$'\t' read -r key path; do
+            name=${key#submodule.}
+            name=${name%.path}
+            url=$(git config -f .gitmodules --get "submodule.${name}.url")
+            pinned=$(git ls-tree HEAD "$path" | awk '{print $3}')
+            upstream=$(git ls-remote "$url" HEAD | awk '{print $1}')
+            echo "| ${path} | \`${pinned}\` | \`${upstream}\` |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$pinned" != "$upstream" ]; then
+              updates=1
+            fi
+          done < <(git config -f .gitmodules --get-regexp '^submodule\..*\.path$')
+
+          if [ "$updates" -eq 1 ]; then
+            echo "At least one external dependency has an upstream update." >&2
+            exit 1
+          fi

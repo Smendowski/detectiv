@@ -17,22 +17,45 @@ class TemporalBoundary:
             raise ValueError("validation_end must be greater than train_end")
 
 
+@dataclass(frozen=True)
+class TemporalHoldout:
+    test_start: int
+    validation_fraction: float
+
+    def __post_init__(self) -> None:
+        if self.test_start <= 1:
+            raise ValueError("test_start must leave room for training and validation")
+        if not 0 < self.validation_fraction < 1:
+            raise ValueError("validation_fraction must be between zero and one")
+
+    def boundary(self) -> TemporalBoundary:
+        validation_length = round(self.test_start * self.validation_fraction)
+        validation_length = min(max(validation_length, 1), self.test_start - 1)
+        return TemporalBoundary(
+            train_end=self.test_start - validation_length,
+            validation_end=self.test_start,
+        )
+
+
 class TemporalSplitter:
-    def __init__(self, boundaries: Mapping[str, TemporalBoundary]) -> None:
-        if not boundaries:
+    def __init__(
+        self,
+        rules: Mapping[str, TemporalBoundary | TemporalHoldout],
+    ) -> None:
+        if not rules:
             raise ValueError("boundaries must not be empty")
-        self.boundaries = dict(boundaries)
+        self.rules = dict(rules)
 
     def split(self, dataset: TimeSeriesDataset) -> TemporalSplit[TimeSeriesDataset]:
-        if set(dataset.series_ids) != set(self.boundaries):
+        if set(dataset.series_ids) != set(self.rules):
             raise ValueError("boundaries must match dataset series IDs")
 
         splits = {
             series_id: dataset[series_id].split(
-                train_end=boundary.train_end,
-                validation_end=boundary.validation_end,
+                train_end=self._boundary(rule).train_end,
+                validation_end=self._boundary(rule).validation_end,
             )
-            for series_id, boundary in self.boundaries.items()
+            for series_id, rule in self.rules.items()
         }
         validation = None
         if any(item.validation is not None for item in splits.values()):
@@ -62,3 +85,9 @@ class TemporalSplitter:
                 metadata=dataset.metadata,
             ),
         )
+
+    @staticmethod
+    def _boundary(rule: TemporalBoundary | TemporalHoldout) -> TemporalBoundary:
+        if isinstance(rule, TemporalHoldout):
+            return rule.boundary()
+        return rule

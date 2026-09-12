@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
 
 import numpy as np
 
@@ -42,6 +43,7 @@ class ImageDataset(Dataset[int, np.ndarray]):
         window_references: Sequence[WindowReference],
         source: ImageSource,
         window_labels: np.ndarray | None = None,
+        series_lengths: Mapping[str, int] | None = None,
         metadata: Mapping[str, object] | None = None,
     ) -> None:
         super().__init__(dataset_id, metadata=metadata)
@@ -50,6 +52,9 @@ class ImageDataset(Dataset[int, np.ndarray]):
         self.image_shape = image_shape
         self.window_references = tuple(window_references)
         self.source = source
+        self.series_lengths = _validate_series_lengths(
+            self.window_references, series_lengths
+        )
         self.window_labels: np.ndarray | None = None
         if window_labels is not None:
             labels = np.asarray(window_labels, dtype=bool)
@@ -72,3 +77,28 @@ class ImageDataset(Dataset[int, np.ndarray]):
                 f"{image.shape}; expected {self.image_shape.shape}"
             )
         return image
+
+
+def _validate_series_lengths(
+    references: tuple[WindowReference, ...],
+    series_lengths: Mapping[str, int] | None,
+) -> Mapping[str, int]:
+    series_ids = {reference.series_id for reference in references}
+    if series_lengths is None:
+        lengths = {
+            series_id: max(
+                reference.stop
+                for reference in references
+                if reference.series_id == series_id
+            )
+            for series_id in series_ids
+        }
+    else:
+        lengths = dict(series_lengths)
+        if set(lengths) != series_ids:
+            raise ValueError("series_lengths must define every referenced series")
+    if any(length <= 0 for length in lengths.values()):
+        raise ValueError("series lengths must be positive")
+    if any(reference.stop > lengths[reference.series_id] for reference in references):
+        raise ValueError("window references must lie within their series length")
+    return MappingProxyType(lengths)

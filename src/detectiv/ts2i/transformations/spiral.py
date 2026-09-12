@@ -1,3 +1,5 @@
+from enum import StrEnum
+
 import numpy as np
 
 from detectiv.ts2i.transformations.base import (
@@ -8,12 +10,22 @@ from detectiv.ts2i.transformations.base import (
 from detectiv.ts2i.transformations.registry import register_transformation
 
 
+class SpiralInputNormalization(StrEnum):
+    NONE = "none"
+    UNIT_INTERVAL = "unit_interval"
+
+
 @register_transformation("SPIRAL")
 class Spiral(TS2ITransformation):
-    def __init__(self, arms: int = 2) -> None:
+    def __init__(
+        self,
+        arms: int = 2,
+        input_normalization: SpiralInputNormalization = SpiralInputNormalization.NONE,
+    ) -> None:
         if arms <= 0:
             raise ValueError("arms must be positive")
         self.arms = arms
+        self.input_normalization = input_normalization
 
     @property
     def input_kinds(self) -> frozenset[TransformationInput]:
@@ -27,6 +39,8 @@ class Spiral(TS2ITransformation):
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:
         series = univariate_values(values, "Spiral")
+        if self.input_normalization is SpiralInputNormalization.UNIT_INTERVAL:
+            series = self._normalize(series)
         height, width = size
         radius_limit = min(height, width) / 2
         rows, columns = np.ogrid[:height, :width]
@@ -41,3 +55,11 @@ class Spiral(TS2ITransformation):
         image = np.zeros((height, width), dtype=np.float32)
         image[within_disc] = series[indices[within_disc] % series.size]
         return image
+
+    @staticmethod
+    def _normalize(values: np.ndarray) -> np.ndarray:
+        minimum = values.min()
+        maximum = values.max()
+        if maximum == minimum:
+            return np.zeros_like(values)
+        return np.asarray((values - minimum) / (maximum - minimum), dtype=np.float32)

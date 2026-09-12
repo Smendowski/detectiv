@@ -76,9 +76,8 @@ class ProjectionScheme:
         rng: np.random.Generator | None,
     ) -> np.ndarray:
         supports_univariate = (
-            values.ndim == 1
-            and TransformationInput.UNIVARIATE in transformation.input_kinds
-        )
+            values.ndim == 1 or (values.ndim == 2 and values.shape[1] == 1)
+        ) and TransformationInput.UNIVARIATE in transformation.input_kinds
         supports_multivariate = (
             values.ndim == 2
             and TransformationInput.MULTIVARIATE in transformation.input_kinds

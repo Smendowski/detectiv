@@ -28,3 +28,12 @@ def test_rwt_can_preserve_prism_wavelet_magnitudes() -> None:
     image = RWT(WaveletOutputNormalization.NONE).transform(values, (5, 6))
 
     assert image.max() > 1
+
+
+def test_rwt_can_clip_like_prism_image_storage() -> None:
+    values = np.linspace(0, 1, 20)
+
+    image = RWT(WaveletOutputNormalization.CLIP_UNIT_INTERVAL).transform(values, (5, 6))
+
+    assert image.min() >= 0
+    assert image.max() <= 1

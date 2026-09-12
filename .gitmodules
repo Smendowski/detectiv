@@ -1,0 +1,3 @@
+[submodule "external/tsb-ad"]
+	path = external/tsb-ad
+	url = https://github.com/TheDatumOrg/TSB-AD.git

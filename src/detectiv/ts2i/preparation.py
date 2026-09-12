@@ -123,5 +123,9 @@ class ImagePreparation:
             window_references=source.window_references,
             source=source,
             window_labels=source.window_labels,
+            series_lengths={
+                series_id: dataset[series_id].n_timesteps
+                for series_id in dataset.series_ids
+            },
             metadata=dataset.metadata,
         )

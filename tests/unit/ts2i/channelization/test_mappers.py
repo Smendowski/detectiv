@@ -2,11 +2,14 @@ import numpy as np
 
 from detectiv.data import TimeSeries
 from detectiv.datasets import TimeSeriesDataset
-from detectiv.ts2i.channelization import MSM, PCA
+from detectiv.ts2i.channelization import MSMChannelization, PCAChannelization
+from detectiv.ts2i.channelization.context import TimestampContext, TrainingSetContext
 
 
 def test_msm_creates_mean_standard_deviation_and_maximum_channels() -> None:
-    mapped = MSM().transform(np.array([[1.0, 3.0], [2.0, 6.0]]))
+    mapped = MSMChannelization(TimestampContext()).transform(
+        np.array([[1.0, 3.0], [2.0, 6.0]])
+    )
 
     np.testing.assert_array_equal(mapped[0], [2.0, 4.0])
     np.testing.assert_array_equal(mapped[1], [1.0, 2.0])
@@ -18,7 +21,7 @@ def test_pca_fits_on_training_series_and_exposes_each_component() -> None:
         "train",
         {"series": TimeSeries(np.array([[0.0, 0.0], [1.0, 1.0]]), series_id="series")},
     )
-    pca = PCA(2).fit(train)
+    pca = PCAChannelization(2, TrainingSetContext()).fit(train)
 
     components = pca.transform(np.array([[2.0, 2.0], [3.0, 3.0]]))
 

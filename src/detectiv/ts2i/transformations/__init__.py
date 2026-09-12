@@ -13,7 +13,7 @@ from detectiv.ts2i.transformations.registry import (
     register_transformation,
 )
 from detectiv.ts2i.transformations.rp import RP
-from detectiv.ts2i.transformations.spiral import Spiral
+from detectiv.ts2i.transformations.spiral import Spiral, SpiralInputNormalization
 from detectiv.ts2i.transformations.state_grid import StateGrid
 from detectiv.ts2i.transformations.wavelets import (
     MWT,
@@ -33,6 +33,7 @@ __all__ = [
     "LinePlot",
     "RandomNoise",
     "Spiral",
+    "SpiralInputNormalization",
     "StateGrid",
     "TS2ITransformation",
     "TransformationInput",
