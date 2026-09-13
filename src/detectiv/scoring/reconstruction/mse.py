@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from detectiv.datasets import ImageDataset, TorchImageDataset
+from detectiv.images import ImageDataset, TorchImageDataset
 from detectiv.losses import MeanSquaredReconstructionLoss
 from detectiv.models.autoencoders import Autoencoder
 from detectiv.models.runtime import resolve_device
@@ -50,7 +50,7 @@ class MeanSquaredReconstructionError(ReconstructionScorer):
             model.train(was_training)
 
 
-class MeanSquaredWindowError(MeanSquaredReconstructionError):
+class MeanSquaredWindowReconstructionError(MeanSquaredReconstructionError):
     def score(self, model: Autoencoder, images: ImageDataset) -> WindowScoreBatch:
         values = [
             error.mean(dim=(1, 2, 3)).cpu().numpy()
@@ -62,7 +62,7 @@ class MeanSquaredWindowError(MeanSquaredReconstructionError):
         )
 
 
-class MeanSquaredTemporalColumnError(MeanSquaredReconstructionError):
+class MeanSquaredPointReconstructionError(MeanSquaredReconstructionError):
     def score(self, model: Autoencoder, images: ImageDataset) -> WindowPointScoreBatch:
         values: list[np.ndarray] = []
         offset = 0
@@ -77,7 +77,7 @@ class MeanSquaredTemporalColumnError(MeanSquaredReconstructionError):
         return WindowPointScoreBatch(tuple(values), images.window_references)
 
 
-class MeanSquaredGradientSaliencyError(MeanSquaredReconstructionError):
+class MeanSquaredSaliencyReconstructionError(MeanSquaredReconstructionError):
     def score(self, model: Autoencoder, images: ImageDataset) -> WindowSaliencyBatch:
         device = resolve_device(self.device)
         was_training = model.training

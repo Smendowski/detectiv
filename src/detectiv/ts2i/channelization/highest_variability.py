@@ -2,12 +2,12 @@ from typing import Self
 
 import numpy as np
 
-from detectiv.datasets import TimeSeriesDataset
+from detectiv.time_series import TimeSeriesDataset
 from detectiv.ts2i.channelization.base import Channelization
 from detectiv.ts2i.channelization.context import FeatureSelectionContext
 
 
-class HighestVariabilityFeaturesChannelization(Channelization):
+class HighestVariabilityFeatureChannelization(Channelization):
     def __init__(self, n_features: int, context: FeatureSelectionContext) -> None:
         if n_features <= 0:
             raise ValueError("n_features must be positive")

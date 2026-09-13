@@ -1,17 +1,23 @@
 import numpy as np
 
-from detectiv.data import TemporalSplit, WindowReference
-from detectiv.datasets import ImageDataset, ImageShape, ImageSource
+from detectiv.callbacks import TimeCallback
+from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
 from detectiv.scenarios import (
+    PointScoringPlan,
     ReconstructionScenario,
     ScoringPlan,
     SemiSupervisedTraining,
-    TimeCallback,
 )
-from detectiv.scoring import MeanPropagationStrategy, MeanSquaredWindowError
+from detectiv.scoring import (
+    MeanPointScoreAggregator,
+    MeanSquaredWindowReconstructionError,
+    UniformPointAssignment,
+)
+from detectiv.time_series import TemporalSplit
+from detectiv.time_series.windowing import WindowReference
 
 
 class ArrayImageSource(ImageSource):
@@ -53,7 +59,14 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
         ),
         training_mode=SemiSupervisedTraining(),
         scoring_plans=(
-            ScoringPlan(MeanSquaredWindowError(), (MeanPropagationStrategy(),)),
+            ScoringPlan(
+                MeanSquaredWindowReconstructionError(),
+                (
+                    PointScoringPlan(
+                        UniformPointAssignment(), MeanPointScoreAggregator()
+                    ),
+                ),
+            ),
         ),
         callbacks=(timer,),
         trainer=AutoencoderTrainer(epochs=1, batch_size=1, seed=7),
@@ -62,8 +75,12 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
     result = scenario.run()
 
     assert len(result.training_losses) == 1
-    assert len(result.window_scores["mean_squared_window"].references) == 2
-    assert result.point_scores["mean_squared_window"]["mean"]["series"].shape == (6,)
+    assert (
+        len(result.window_scores["mean_squared_window_reconstruction"].references) == 2
+    )
+    assert result.point_scores["mean_squared_window_reconstruction"]["uniform_mean"][
+        "series"
+    ].shape == (6,)
     assert timer.elapsed_seconds is not None
 
 

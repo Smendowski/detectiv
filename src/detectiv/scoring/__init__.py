@@ -1,17 +1,19 @@
 from detectiv.scoring.base import ReconstructionScorer
 from detectiv.scoring.propagation import (
-    MaxPropagationStrategy,
-    MeanPropagationStrategy,
-    MedianPropagationStrategy,
-    SaliencyWeightedPropagationStrategy,
-    TemporalColumnPropagationStrategy,
+    DirectPointAssignment,
+    MaxPointScoreAggregator,
+    MeanPointScoreAggregator,
+    MedianPointScoreAggregator,
+    PointAssignment,
+    PointScoreAggregator,
+    SaliencyWeightedPointAssignment,
     UncoveredPolicy,
-    WindowToPointScorePropagationStrategy,
+    UniformPointAssignment,
 )
 from detectiv.scoring.reconstruction import (
-    MeanSquaredGradientSaliencyError,
-    MeanSquaredTemporalColumnError,
-    MeanSquaredWindowError,
+    MeanSquaredPointReconstructionError,
+    MeanSquaredSaliencyReconstructionError,
+    MeanSquaredWindowReconstructionError,
 )
 from detectiv.scoring.window_scores import (
     WindowEvidenceBatch,
@@ -21,19 +23,21 @@ from detectiv.scoring.window_scores import (
 )
 
 __all__ = [
-    "MaxPropagationStrategy",
-    "MeanPropagationStrategy",
-    "MeanSquaredGradientSaliencyError",
-    "MeanSquaredTemporalColumnError",
-    "MeanSquaredWindowError",
-    "MedianPropagationStrategy",
+    "DirectPointAssignment",
+    "MaxPointScoreAggregator",
+    "MeanPointScoreAggregator",
+    "MeanSquaredPointReconstructionError",
+    "MeanSquaredSaliencyReconstructionError",
+    "MeanSquaredWindowReconstructionError",
+    "MedianPointScoreAggregator",
+    "PointAssignment",
+    "PointScoreAggregator",
     "ReconstructionScorer",
-    "SaliencyWeightedPropagationStrategy",
-    "TemporalColumnPropagationStrategy",
+    "SaliencyWeightedPointAssignment",
     "UncoveredPolicy",
+    "UniformPointAssignment",
     "WindowEvidenceBatch",
     "WindowPointScoreBatch",
     "WindowSaliencyBatch",
     "WindowScoreBatch",
-    "WindowToPointScorePropagationStrategy",
 ]

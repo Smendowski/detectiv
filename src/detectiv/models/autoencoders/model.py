@@ -32,6 +32,10 @@ class Autoencoder(nn.Module):
         reconstruction = cast(Tensor, self.decoder(embeddings))
         if reconstruction.ndim != 4:
             raise ValueError("decoder must return a four-dimensional image tensor")
+        if reconstruction.shape[:2] != images.shape[:2]:
+            raise ValueError(
+                "decoder must preserve the input batch size and channel count"
+            )
         if reconstruction.shape[-2:] != images.shape[-2:]:
             reconstruction = functional.interpolate(
                 reconstruction,

@@ -1,14 +1,14 @@
 import numpy as np
 from torch import Tensor
 
-from detectiv.data import WindowReference
-from detectiv.datasets import ImageDataset, ImageShape, ImageSource
+from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.models.autoencoders import Autoencoder
 from detectiv.models.autoencoders.base import ImageDecoder, ImageEncoder
 from detectiv.scoring.reconstruction import (
-    MeanSquaredTemporalColumnError,
-    MeanSquaredWindowError,
+    MeanSquaredPointReconstructionError,
+    MeanSquaredWindowReconstructionError,
 )
+from detectiv.time_series.windowing import WindowReference
 
 
 class ArrayImageSource(ImageSource):
@@ -35,7 +35,7 @@ class ZeroDecoder(ImageDecoder):
 def test_window_error_collapses_the_reconstruction_error() -> None:
     images = _images()
 
-    scores = MeanSquaredWindowError().score(_zero_autoencoder(), images)
+    scores = MeanSquaredWindowReconstructionError().score(_zero_autoencoder(), images)
 
     np.testing.assert_allclose(scores.values, [7.5])
 
@@ -43,7 +43,7 @@ def test_window_error_collapses_the_reconstruction_error() -> None:
 def test_temporal_column_error_retains_time_resolved_error() -> None:
     images = _images()
 
-    scores = MeanSquaredTemporalColumnError().score(_zero_autoencoder(), images)
+    scores = MeanSquaredPointReconstructionError().score(_zero_autoencoder(), images)
 
     np.testing.assert_allclose(scores.values[0], [1.0, 4.0, 9.0, 16.0])
 

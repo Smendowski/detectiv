@@ -40,6 +40,16 @@ def test_autoencoder_rejects_non_image_tensors() -> None:
         model.reconstruct(torch.rand(1, 16))
 
 
+def test_autoencoder_rejects_reconstructions_with_different_channels() -> None:
+    model = Autoencoder(
+        CNNEncoder(3, hidden_channels=(4,)),
+        CNNDecoder(4, hidden_channels=(), output_channels=1),
+    )
+
+    with pytest.raises(ValueError, match="batch size and channel count"):
+        model.reconstruct(torch.rand(2, 3, 8, 8))
+
+
 def test_autoencoder_accepts_a_dense_spatial_bottleneck() -> None:
     model = Autoencoder(
         CNNEncoder(1, hidden_channels=(4,)),

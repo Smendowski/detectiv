@@ -1,7 +1,7 @@
 from detectiv.ts2i.channelization.base import Channelization, IdentityChannelization
 from detectiv.ts2i.channelization.features import FeatureChannelization
 from detectiv.ts2i.channelization.highest_variability import (
-    HighestVariabilityFeaturesChannelization,
+    HighestVariabilityFeatureChannelization,
 )
 from detectiv.ts2i.channelization.msm import MSMChannelization
 from detectiv.ts2i.channelization.pca import PCAChannelization
@@ -9,7 +9,7 @@ from detectiv.ts2i.channelization.pca import PCAChannelization
 __all__ = [
     "Channelization",
     "FeatureChannelization",
-    "HighestVariabilityFeaturesChannelization",
+    "HighestVariabilityFeatureChannelization",
     "IdentityChannelization",
     "MSMChannelization",
     "PCAChannelization",

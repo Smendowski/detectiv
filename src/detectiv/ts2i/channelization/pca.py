@@ -3,7 +3,7 @@ from typing import Self
 import numpy as np
 from sklearn.decomposition import PCA as SklearnPCA
 
-from detectiv.datasets import TimeSeriesDataset
+from detectiv.time_series import TimeSeriesDataset
 from detectiv.ts2i.channelization.base import Channelization
 from detectiv.ts2i.channelization.context import TrainingSetContext
 

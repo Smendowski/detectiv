@@ -10,7 +10,7 @@ from torch import Tensor, optim
 from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 
-from detectiv.datasets import ImageDataset, TorchImageDataset
+from detectiv.images import ImageDataset, TorchImageDataset
 from detectiv.losses import MeanSquaredReconstructionLoss
 from detectiv.models.autoencoders.model import Autoencoder
 from detectiv.models.autoencoders.transfer_learning import (
@@ -41,6 +41,7 @@ class AutoencoderTrainer:
     )
     early_stopping_patience: int | None = None
     min_delta: float = 0.0
+    restore_best_validation: bool = True
 
     def __post_init__(self) -> None:
         if self.epochs <= 0 or self.batch_size <= 0:
@@ -70,9 +71,13 @@ class AutoencoderTrainer:
         dataset = TorchImageDataset(images, indices)
         if not len(dataset):
             raise ValueError("at least one training image is required")
+
         validation_dataset = self._validation_dataset(validation, validation_indices)
+        if validation_dataset is not None and not len(validation_dataset):
+            raise ValueError("at least one validation image is required")
         if self.early_stopping_patience is not None and validation_dataset is None:
             raise ValueError("early stopping requires validation images")
+
         generator = None
         if self.seed is not None:
             generator = torch.Generator().manual_seed(self.seed)
@@ -82,6 +87,7 @@ class AutoencoderTrainer:
             shuffle=True,
             generator=generator,
         )
+
         device = resolve_device(self.device)
         model.to(device)
         optimizer = self.transfer_strategy.initialize(
@@ -91,9 +97,11 @@ class AutoencoderTrainer:
             self.weight_decay,
         )
         scheduler = self._scheduler(optimizer, validation_dataset)
+
         losses: list[float] = []
         validation_losses: list[float] = []
         best_loss = float("inf")
+        best_epoch: int | None = None
         best_state: dict[str, Tensor] | None = None
         epochs_without_improvement = 0
         model.train()
@@ -109,6 +117,7 @@ class AutoencoderTrainer:
             if updated_optimizer is not optimizer:
                 optimizer = updated_optimizer
                 scheduler = self._scheduler(optimizer, validation_dataset)
+
             loss_sum = 0.0
             n_images = 0
             for batch in loader:
@@ -120,19 +129,25 @@ class AutoencoderTrainer:
                 optimizer.step()
                 loss_sum += float(reconstruction_loss.detach()) * len(batch)
                 n_images += len(batch)
+
             epoch_loss = loss_sum / n_images
             losses.append(epoch_loss)
             if on_epoch_finished is not None:
                 on_epoch_finished(epoch, epoch_loss)
+
             if validation_dataset is None:
                 self._step_scheduler(scheduler)
                 continue
+
             validation_loss = self._loss(model, validation_dataset, device)
             validation_losses.append(validation_loss)
             self._step_scheduler(scheduler, validation_loss)
+
             if validation_loss < best_loss - self.min_delta:
                 best_loss = validation_loss
-                best_state = deepcopy(model.state_dict())
+                best_epoch = epoch
+                if self.restore_best_validation:
+                    best_state = deepcopy(model.state_dict())
                 epochs_without_improvement = 0
             else:
                 epochs_without_improvement += 1
@@ -141,9 +156,15 @@ class AutoencoderTrainer:
                     and epochs_without_improvement >= self.early_stopping_patience
                 ):
                     break
+
         if best_state is not None:
             model.load_state_dict(best_state)
-        return TrainingHistory(tuple(losses), tuple(validation_losses))
+        return TrainingHistory(
+            training_losses=tuple(losses),
+            validation_losses=tuple(validation_losses),
+            best_epoch=best_epoch,
+            best_validation_loss=None if best_epoch is None else best_loss,
+        )
 
     def _scheduler(
         self,
@@ -152,6 +173,7 @@ class AutoencoderTrainer:
     ) -> Scheduler | None:
         if self.scheduler_factory is None:
             return None
+
         scheduler = self.scheduler_factory(optimizer)
         if validation is None and isinstance(scheduler, ReduceLROnPlateau):
             raise ValueError("ReduceLROnPlateau requires validation images")
@@ -169,6 +191,7 @@ class AutoencoderTrainer:
                 raise ValueError("ReduceLROnPlateau requires a validation loss")
             scheduler.step(validation_loss)
             return
+
         scheduler.step()
 
     def _validation_dataset(
@@ -180,6 +203,7 @@ class AutoencoderTrainer:
             if indices is not None:
                 raise ValueError("validation indices require validation images")
             return None
+
         return TorchImageDataset(images, indices)
 
     def _loss(
@@ -191,10 +215,12 @@ class AutoencoderTrainer:
         was_training = model.training
         model.eval()
         loss_sum = 0.0
+
         with torch.no_grad():
             for batch in DataLoader(images, batch_size=self.batch_size):
                 batch = cast(Tensor, batch).to(device)
                 loss_sum += float(self.loss(model(batch), batch)) * len(batch)
+
         model.train(was_training)
         return loss_sum / len(images)
 
@@ -203,3 +229,5 @@ class AutoencoderTrainer:
 class TrainingHistory:
     training_losses: tuple[float, ...]
     validation_losses: tuple[float, ...] = ()
+    best_epoch: int | None = None
+    best_validation_loss: float | None = None

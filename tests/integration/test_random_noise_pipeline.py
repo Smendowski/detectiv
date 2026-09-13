@@ -4,30 +4,27 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from detectiv.data import TemporalSplit, TimeSeries, WindowReference
-from detectiv.datasets import (
-    ImageArchiveWriter,
-    ImageArtifactReader,
-    ImageDataset,
-    ImageFolderReader,
-    ImageFolderWriter,
-    ImageFormat,
-    ImageOutputConfig,
-    ImageShape,
-    ImageSource,
+from detectiv.images import ImageDataset, ImageShape, ImageSource
+from detectiv.images.io import ImageFormat, ImageOutputConfig
+from detectiv.images.io.readers import ImageArtifactReader, ImageFolderReader
+from detectiv.images.io.writers import ImageArchiveWriter, ImageFolderWriter
+from detectiv.time_series import (
     TemporalBoundary,
+    TemporalSplit,
     TemporalSplitter,
+    TimeSeries,
     TimeSeriesDataset,
+)
+from detectiv.time_series.windowing import (
+    TailPolicy,
+    WindowReference,
+    WindowSpec,
 )
 from detectiv.ts2i import ImagePreparation
 from detectiv.ts2i.channelization import IdentityChannelization
 from detectiv.ts2i.channelization.context import WindowContext
-from detectiv.ts2i.projection import FixedProjectionStrategy, ProjectionScheme
+from detectiv.ts2i.projection import ConfiguredProjectionStrategy, ProjectionScheme
 from detectiv.ts2i.transformations import RandomNoise
-from detectiv.windowing import (
-    TailPolicy,
-    WindowSpec,
-)
 
 
 class ArrayImageSource(ImageSource):
@@ -52,7 +49,7 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
             )
         },
     )
-    projection = FixedProjectionStrategy(
+    projection = ConfiguredProjectionStrategy(
         ProjectionScheme(IdentityChannelization(WindowContext()))
         .channels(RandomNoise())
         .replicate(n_channels=3)
@@ -98,7 +95,7 @@ def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:
         .split(TemporalSplitter({"series": TemporalBoundary(4)}))
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(
-            FixedProjectionStrategy(
+            ConfiguredProjectionStrategy(
                 ProjectionScheme(IdentityChannelization(WindowContext()))
                 .channels(RandomNoise())
                 .replicate(n_channels=3)
@@ -107,15 +104,17 @@ def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:
         .build((3, 4), seed=7)
     )
 
-    output = ImageFolderWriter(ImageOutputConfig(tmp_path / "images")).write(images)
+    output = ImageFolderWriter(
+        ImageOutputConfig(tmp_path / "images", format=ImageFormat.NPY)
+    ).write(images)
 
-    assert (output / "train/0/000000.png").exists()
-    assert (output / "test/1/000001.png").exists()
+    assert (output / "train/0/000000.npy").exists()
+    assert (output / "test/1/000001.npy").exists()
     manifest = (output / "manifest.csv").read_text().splitlines()
     assert manifest[1].split(",") == [
         "train",
         "0",
-        "train/0/000000.png",
+        "train/0/000000.npy",
         "series",
         "0",
         "2",
@@ -124,17 +123,12 @@ def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:
     assert manifest[-1].split(",") == [
         "test",
         "1",
-        "test/1/000002.png",
+        "test/1/000002.npy",
         "series",
         "2",
         "4",
         "2",
     ]
-
-
-def test_parallel_image_export_is_explicitly_not_implemented(tmp_path: Path) -> None:
-    with pytest.raises(NotImplementedError, match="parallel"):
-        ImageOutputConfig(tmp_path / "images", workers=1)
 
 
 def test_image_artifacts_round_trip_lazily(tmp_path: Path) -> None:
@@ -153,7 +147,7 @@ def test_image_artifacts_round_trip_lazily(tmp_path: Path) -> None:
         .split(TemporalSplitter({"series": TemporalBoundary(4)}))
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(
-            FixedProjectionStrategy(
+            ConfiguredProjectionStrategy(
                 ProjectionScheme(IdentityChannelization(WindowContext()))
                 .channels(RandomNoise())
                 .replicate(n_channels=3)

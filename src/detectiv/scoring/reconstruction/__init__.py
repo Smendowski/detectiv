@@ -1,11 +1,11 @@
 from detectiv.scoring.reconstruction.mse import (
-    MeanSquaredGradientSaliencyError,
-    MeanSquaredTemporalColumnError,
-    MeanSquaredWindowError,
+    MeanSquaredPointReconstructionError,
+    MeanSquaredSaliencyReconstructionError,
+    MeanSquaredWindowReconstructionError,
 )
 
 __all__ = [
-    "MeanSquaredGradientSaliencyError",
-    "MeanSquaredTemporalColumnError",
-    "MeanSquaredWindowError",
+    "MeanSquaredPointReconstructionError",
+    "MeanSquaredSaliencyReconstructionError",
+    "MeanSquaredWindowReconstructionError",
 ]

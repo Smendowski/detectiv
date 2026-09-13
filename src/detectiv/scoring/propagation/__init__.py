@@ -1,21 +1,25 @@
 from detectiv.scoring.propagation.base import (
+    PointAssignment,
+    PointScoreAggregator,
     UncoveredPolicy,
-    WindowToPointScorePropagationStrategy,
 )
 from detectiv.scoring.propagation.strategies import (
-    MaxPropagationStrategy,
-    MeanPropagationStrategy,
-    MedianPropagationStrategy,
-    SaliencyWeightedPropagationStrategy,
-    TemporalColumnPropagationStrategy,
+    DirectPointAssignment,
+    MaxPointScoreAggregator,
+    MeanPointScoreAggregator,
+    MedianPointScoreAggregator,
+    SaliencyWeightedPointAssignment,
+    UniformPointAssignment,
 )
 
 __all__ = [
-    "MaxPropagationStrategy",
-    "MeanPropagationStrategy",
-    "MedianPropagationStrategy",
-    "SaliencyWeightedPropagationStrategy",
-    "TemporalColumnPropagationStrategy",
+    "DirectPointAssignment",
+    "MaxPointScoreAggregator",
+    "MeanPointScoreAggregator",
+    "MedianPointScoreAggregator",
+    "PointAssignment",
+    "PointScoreAggregator",
+    "SaliencyWeightedPointAssignment",
     "UncoveredPolicy",
-    "WindowToPointScorePropagationStrategy",
+    "UniformPointAssignment",
 ]

@@ -1,7 +1,6 @@
 import numpy as np
 
-from detectiv.data import TimeSeries
-from detectiv.datasets import TimeSeriesDataset
+from detectiv.time_series import TimeSeries, TimeSeriesDataset
 from detectiv.ts2i.channelization import MSMChannelization, PCAChannelization
 from detectiv.ts2i.channelization.context import TimestampContext, TrainingSetContext
 

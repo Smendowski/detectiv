@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 from numpy.typing import NDArray
 
-from detectiv.datasets import ImageDataset
+from detectiv.images import ImageDataset
 from detectiv.scenarios.validation import ValidationHoldout
 
 

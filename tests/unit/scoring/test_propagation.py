@@ -1,21 +1,22 @@
 import numpy as np
 import pytest
 
-from detectiv.data import WindowReference
 from detectiv.scoring import (
-    MaxPropagationStrategy,
-    MeanPropagationStrategy,
-    MedianPropagationStrategy,
-    SaliencyWeightedPropagationStrategy,
-    TemporalColumnPropagationStrategy,
+    DirectPointAssignment,
+    MaxPointScoreAggregator,
+    MeanPointScoreAggregator,
+    MedianPointScoreAggregator,
+    SaliencyWeightedPointAssignment,
     UncoveredPolicy,
+    UniformPointAssignment,
     WindowPointScoreBatch,
     WindowSaliencyBatch,
     WindowScoreBatch,
 )
+from detectiv.time_series.windowing import WindowReference
 
 
-def test_overlapping_window_scores_are_aggregated_without_labels() -> None:
+def test_uniform_assignment_and_aggregation_resolve_overlaps() -> None:
     scores = WindowScoreBatch(
         np.array([1.0, 3.0]),
         (
@@ -24,16 +25,22 @@ def test_overlapping_window_scores_are_aggregated_without_labels() -> None:
         ),
     )
 
-    mean = MeanPropagationStrategy().transform(scores, 4)
-    maximum = MaxPropagationStrategy().transform(scores, 4)
-    median = MedianPropagationStrategy().transform(scores, 4)
+    contributions = UniformPointAssignment().assign(scores)
 
-    np.testing.assert_array_equal(mean, [1.0, 2.0, 2.0, 3.0])
-    np.testing.assert_array_equal(maximum, [1.0, 3.0, 3.0, 3.0])
-    np.testing.assert_array_equal(median, [1.0, 2.0, 2.0, 3.0])
+    np.testing.assert_array_equal(contributions.values[0], [1.0, 1.0, 1.0])
+    np.testing.assert_array_equal(contributions.values[1], [3.0, 3.0, 3.0])
+    np.testing.assert_array_equal(
+        MeanPointScoreAggregator().aggregate(contributions, 4), [1.0, 2.0, 2.0, 3.0]
+    )
+    np.testing.assert_array_equal(
+        MaxPointScoreAggregator().aggregate(contributions, 4), [1.0, 3.0, 3.0, 3.0]
+    )
+    np.testing.assert_array_equal(
+        MedianPointScoreAggregator().aggregate(contributions, 4), [1.0, 2.0, 2.0, 3.0]
+    )
 
 
-def test_tail_padding_respects_the_reference_valid_length() -> None:
+def test_uniform_assignment_respects_the_reference_valid_length() -> None:
     scores = WindowScoreBatch(
         np.array([1.0, 3.0]),
         (
@@ -43,11 +50,14 @@ def test_tail_padding_respects_the_reference_valid_length() -> None:
     )
 
     np.testing.assert_array_equal(
-        MeanPropagationStrategy().transform(scores, 6), [1, 1, 1, 1, 3, 3]
+        MeanPointScoreAggregator().aggregate(
+            UniformPointAssignment().assign(scores), 6
+        ),
+        [1, 1, 1, 1, 3, 3],
     )
 
 
-def test_pointwise_window_scores_only_aggregate_overlaps() -> None:
+def test_direct_assignment_only_requires_overlap_aggregation() -> None:
     scores = WindowPointScoreBatch(
         (np.array([1.0, 2.0, 3.0]), np.array([5.0, 6.0, 7.0])),
         (
@@ -56,25 +66,29 @@ def test_pointwise_window_scores_only_aggregate_overlaps() -> None:
         ),
     )
 
+    contributions = DirectPointAssignment().assign(scores)
+
+    assert contributions is scores
     np.testing.assert_array_equal(
-        MeanPropagationStrategy().transform(scores, 4), [1.0, 3.5, 4.5, 7.0]
+        MeanPointScoreAggregator().aggregate(contributions, 4), [1.0, 3.5, 4.5, 7.0]
     )
     np.testing.assert_array_equal(
-        TemporalColumnPropagationStrategy().transform(scores, 4), [1.0, 3.5, 4.5, 7.0]
+        MedianPointScoreAggregator().aggregate(contributions, 4),
+        [1.0, 3.5, 4.5, 7.0],
     )
 
 
-def test_temporal_column_propagation_requires_point_scores() -> None:
+def test_direct_assignment_requires_point_scores() -> None:
     scores = WindowScoreBatch(
         np.array([1.0]),
         (WindowReference("series", 0, 2, 2),),
     )
 
-    with pytest.raises(TypeError, match="time-resolved"):
-        TemporalColumnPropagationStrategy().transform(scores, 2)
+    with pytest.raises(TypeError, match="one score per window point"):
+        DirectPointAssignment().assign(scores)
 
 
-def test_saliency_weighted_propagation_preserves_each_window_score() -> None:
+def test_saliency_assignment_preserves_each_window_score_on_average() -> None:
     scores = WindowSaliencyBatch(
         np.array([2.0, 4.0]),
         (np.array([1.0, 3.0]), np.array([2.0, 2.0])),
@@ -84,20 +98,25 @@ def test_saliency_weighted_propagation_preserves_each_window_score() -> None:
         ),
     )
 
-    result = SaliencyWeightedPropagationStrategy().transform(scores, 3)
+    contributions = SaliencyWeightedPointAssignment().assign(scores)
 
-    np.testing.assert_array_equal(result, [1.0, 3.5, 4.0])
+    np.testing.assert_array_equal(contributions.values[0], [1.0, 3.0])
+    np.testing.assert_array_equal(contributions.values[1], [4.0, 4.0])
+    np.testing.assert_array_equal(
+        MeanPointScoreAggregator().aggregate(contributions, 3), [1.0, 3.5, 4.0]
+    )
 
 
-def test_only_trailing_gaps_can_use_edge_padding() -> None:
+def test_aggregator_resolves_uncovered_points() -> None:
     scores = WindowScoreBatch(
         np.array([1.0]),
         (WindowReference("series", 0, 2, 2),),
     )
+    contributions = UniformPointAssignment().assign(scores)
 
     with pytest.raises(ValueError, match="uncovered"):
-        MeanPropagationStrategy().transform(scores, 3)
+        MeanPointScoreAggregator().aggregate(contributions, 3)
     np.testing.assert_array_equal(
-        MeanPropagationStrategy(UncoveredPolicy.EDGE_PAD).transform(scores, 3),
+        MeanPointScoreAggregator(UncoveredPolicy.EDGE_PAD).aggregate(contributions, 3),
         [1, 1, 1],
     )

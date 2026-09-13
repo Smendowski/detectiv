@@ -1,9 +1,13 @@
 import numpy as np
 
-from detectiv.data import WindowReference
-from detectiv.datasets import ImageSource, TimeSeriesDataset
-from detectiv.ts2i.projection import ProjectionStrategy
-from detectiv.windowing import WindowLabelingStrategy, WindowSpec
+from detectiv.images import ImageSource
+from detectiv.time_series import TimeSeriesDataset
+from detectiv.time_series.windowing import (
+    WindowLabelingStrategy,
+    WindowReference,
+    WindowSpec,
+)
+from detectiv.ts2i.projection import ProjectionScheme
 
 
 class GeneratedImageSource(ImageSource):
@@ -12,23 +16,26 @@ class GeneratedImageSource(ImageSource):
         dataset: TimeSeriesDataset,
         *,
         window: WindowSpec,
-        projection: ProjectionStrategy,
+        projection: ProjectionScheme,
         size: tuple[int, int],
         seed: int,
     ) -> None:
         self._projection = projection
         self._size = size
         self._seed = seed
+
         windower = window.windower()
         self._batches = {
             series_id: windower.transform(dataset[series_id])
             for series_id in dataset.series_ids
         }
+
         self._entries = tuple(
             (series_id, index)
             for series_id in dataset.series_ids
             for index in range(self._batches[series_id].n_windows)
         )
+
         self.window_references = self._references()
         self.window_labels = self._labels(dataset, window.labeling_strategy)
 
@@ -87,4 +94,4 @@ class GeneratedImageSource(ImageSource):
         series_id, window_index = self._entries[index]
         window = self._batches[series_id].values[window_index]
         rng = np.random.default_rng(np.random.SeedSequence((self._seed, index)))
-        return self._projection.render(window, self._size, rng)
+        return self._projection.render(window, self._size, rng=rng)

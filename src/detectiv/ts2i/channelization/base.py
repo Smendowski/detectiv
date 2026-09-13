@@ -3,7 +3,7 @@ from typing import Self
 
 import numpy as np
 
-from detectiv.datasets import TimeSeriesDataset
+from detectiv.time_series import TimeSeriesDataset
 from detectiv.ts2i.channelization.context import ChannelizationContext
 
 

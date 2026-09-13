@@ -2,7 +2,6 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
-from detectiv.datasets import TimeSeriesDataset
 from detectiv.ts2i.channelization import Channelization
 from detectiv.ts2i.transformations import TransformationInput, TS2ITransformation
 
@@ -34,10 +33,6 @@ class ProjectionScheme:
         if self._replication_count is not None:
             return self._replication_count
         return len(self._transformations)
-
-    def fit(self, train: TimeSeriesDataset) -> "ProjectionScheme":
-        self.channelization.fit(train)
-        return self
 
     def render(
         self,

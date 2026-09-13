@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from detectiv.datasets import ImageDataset
+from detectiv.images import ImageDataset
 from detectiv.models.autoencoders import Autoencoder
 from detectiv.scoring.window_scores import WindowEvidenceBatch
 

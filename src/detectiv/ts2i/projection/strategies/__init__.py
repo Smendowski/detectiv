@@ -1,4 +1,4 @@
 from detectiv.ts2i.projection.strategies.base import ProjectionStrategy
-from detectiv.ts2i.projection.strategies.fixed import FixedProjectionStrategy
+from detectiv.ts2i.projection.strategies.configured import ConfiguredProjectionStrategy
 
-__all__ = ["FixedProjectionStrategy", "ProjectionStrategy"]
+__all__ = ["ConfiguredProjectionStrategy", "ProjectionStrategy"]

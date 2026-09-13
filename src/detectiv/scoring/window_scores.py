@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from detectiv.data import WindowReference
+from detectiv.time_series.windowing import WindowReference
 
 
 class WindowEvidenceBatch(ABC):

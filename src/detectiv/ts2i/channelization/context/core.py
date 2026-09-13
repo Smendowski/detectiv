@@ -3,7 +3,7 @@ from collections.abc import Callable
 
 import numpy as np
 
-from detectiv.datasets import TimeSeriesDataset
+from detectiv.time_series import TimeSeriesDataset
 
 
 class ChannelizationContext:

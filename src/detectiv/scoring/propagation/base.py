@@ -1,15 +1,13 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
 from enum import StrEnum
 
 import numpy as np
 
-from detectiv.data import WindowReference
 from detectiv.scoring.window_scores import (
     WindowEvidenceBatch,
     WindowPointScoreBatch,
-    WindowScoreBatch,
 )
+from detectiv.time_series.windowing import WindowReference
 
 
 class UncoveredPolicy(StrEnum):
@@ -17,7 +15,19 @@ class UncoveredPolicy(StrEnum):
     EDGE_PAD = "edge_pad"
 
 
-class WindowToPointScorePropagationStrategy(ABC):
+class PointAssignment(ABC):
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    def assign(self, evidence: WindowEvidenceBatch) -> WindowPointScoreBatch:
+        """Assign every window's evidence to its valid source points."""
+        raise NotImplementedError
+
+
+class PointScoreAggregator(ABC):
     def __init__(self, uncovered: UncoveredPolicy = UncoveredPolicy.ERROR) -> None:
         self.uncovered = uncovered
 
@@ -26,38 +36,25 @@ class WindowToPointScorePropagationStrategy(ABC):
     def name(self) -> str:
         raise NotImplementedError
 
-    def transform(
+    def aggregate(
         self,
-        scores: WindowEvidenceBatch,
+        contributions: WindowPointScoreBatch,
         series_length: int,
     ) -> np.ndarray:
         if series_length <= 0:
             raise ValueError("series_length must be positive")
-        if not scores.references:
-            raise ValueError("at least one window score is required")
-        point_scores, coverage = self._aggregate(scores, series_length)
+        if not contributions.references:
+            raise ValueError("at least one point contribution is required")
+        point_scores, coverage = self._aggregate(contributions, series_length)
         return self._resolve_uncovered(point_scores, coverage)
 
     @abstractmethod
     def _aggregate(
         self,
-        scores: WindowEvidenceBatch,
+        contributions: WindowPointScoreBatch,
         series_length: int,
     ) -> tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError
-
-    @staticmethod
-    def contributions(
-        scores: WindowEvidenceBatch,
-    ) -> Iterator[tuple[np.ndarray, WindowReference]]:
-        if isinstance(scores, WindowScoreBatch):
-            for value, reference in zip(scores.values, scores.references, strict=True):
-                yield np.full(reference.valid_length, value), reference
-            return
-        if isinstance(scores, WindowPointScoreBatch):
-            yield from zip(scores.values, scores.references, strict=True)
-            return
-        raise TypeError("this propagation strategy does not use saliency evidence")
 
     @staticmethod
     def bounds(reference: WindowReference, series_length: int) -> tuple[int, int]:

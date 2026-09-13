@@ -1,9 +1,9 @@
 import numpy as np
 
-from detectiv.data import WindowReference
-from detectiv.datasets import ImageDataset, ImageShape, ImageSource
+from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.scenarios.training import SemiSupervisedTraining
 from detectiv.scenarios.validation import RandomHoldout
+from detectiv.time_series.windowing import WindowReference
 
 
 class ArrayImageSource(ImageSource):

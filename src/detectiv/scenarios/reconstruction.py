@@ -4,19 +4,19 @@ from types import MappingProxyType
 
 import numpy as np
 
-from detectiv.data import TemporalSplit
-from detectiv.datasets import ImageDataset
+from detectiv.callbacks.base import ScenarioCallback
+from detectiv.images import ImageDataset
 from detectiv.models.autoencoders import (
     Autoencoder,
     AutoencoderTrainer,
     TrainingHistory,
 )
-from detectiv.scenarios.callbacks import ScenarioCallback
 from detectiv.scenarios.scoring import ScoringPlan
 from detectiv.scenarios.training import TrainingMode
 from detectiv.scoring import (
     WindowEvidenceBatch,
 )
+from detectiv.time_series import TemporalSplit
 
 
 @dataclass(frozen=True)
@@ -96,16 +96,16 @@ class ReconstructionScenario:
             reference.series_id for reference in scores.references
         )
         point_scores = {
-            propagation.name: MappingProxyType(
+            point_scoring.name: MappingProxyType(
                 {
-                    series_id: propagation.transform(
-                        scores.for_series(series_id),
+                    series_id: point_scoring.aggregator.aggregate(
+                        point_scoring.assignment.assign(scores.for_series(series_id)),
                         self.images.test.series_lengths[series_id],
                     )
                     for series_id in series_ids
                 }
             )
-            for propagation in plan.propagations
+            for point_scoring in plan.point_scoring
         }
         return MappingProxyType(point_scores)
 
