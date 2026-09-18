@@ -12,6 +12,7 @@ from detectiv.time_series.windowing import (
     Windower,
     WindowLabelingStrategy,
     WindowMode,
+    WindowReference,
     WindowSpec,
 )
 
@@ -40,6 +41,17 @@ def test_window_spec_normalizes_string_enums() -> None:
     assert spec.tail is TailPolicy.DROP
     assert spec.labeling_strategy is WindowLabelingStrategy.START
     assert spec.windower().transform(TimeSeries(np.arange(6))).n_windows == 1
+
+
+@pytest.mark.parametrize("value", [2.5, True])
+def test_window_spec_rejects_non_integral_dimensions(value: object) -> None:
+    with pytest.raises(ValueError, match="integer"):
+        WindowSpec(value)  # type: ignore[arg-type]
+
+
+def test_window_reference_requires_matching_stop_and_valid_length() -> None:
+    with pytest.raises(ValueError, match="match the window bounds"):
+        WindowReference("series", 0, 4, 2)
 
 
 def test_overlapping_windows_are_views_with_point_coverage() -> None:

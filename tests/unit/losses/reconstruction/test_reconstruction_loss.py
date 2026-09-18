@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from detectiv.losses import MeanSquaredReconstructionLoss
@@ -17,3 +18,14 @@ def test_mean_squared_reconstruction_loss_exposes_pixel_errors() -> None:
     error = loss.error(torch.tensor([1.0, 3.0]), torch.tensor([0.0, 1.0]))
 
     assert torch.equal(error, torch.tensor([1.0, 4.0]))
+
+
+def test_mean_squared_reconstruction_loss_rejects_broadcastable_shapes() -> None:
+    loss = MeanSquaredReconstructionLoss()
+    reconstruction = torch.ones((1, 1, 2, 2))
+    images = torch.zeros((1, 3, 2, 2))
+
+    with pytest.raises(ValueError, match="identical shapes"):
+        loss(reconstruction, images)
+    with pytest.raises(ValueError, match="identical shapes"):
+        loss.error(reconstruction, images)

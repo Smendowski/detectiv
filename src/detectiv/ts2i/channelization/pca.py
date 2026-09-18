@@ -5,22 +5,24 @@ from sklearn.decomposition import PCA as SklearnPCA
 
 from detectiv.time_series import TimeSeriesDataset
 from detectiv.ts2i.channelization.base import Channelization
-from detectiv.ts2i.channelization.context import TrainingSetContext
 
 
 class PCAChannelization(Channelization):
-    def __init__(self, n_components: int, context: TrainingSetContext) -> None:
+    def __init__(self, n_components: int) -> None:
         if n_components <= 0:
             raise ValueError("n_components must be positive")
-        super().__init__(context)
-        self._training_context = context
         self.n_components = n_components
         self._model: SklearnPCA | None = None
 
     def fit(self, train: TimeSeriesDataset) -> Self:
-        values = self._training_context.values(train)
-        if self.n_components > values.shape[1]:
-            raise ValueError("n_components must not exceed the number of features")
+        values = np.concatenate(
+            tuple(train[series_id].values for series_id in train.series_ids)
+        )
+        if self.n_components > min(values.shape):
+            raise ValueError(
+                "n_components must not exceed the number of training samples "
+                "or features"
+            )
         self._model = SklearnPCA(n_components=self.n_components, svd_solver="full")
         self._model.fit(values)
         return self

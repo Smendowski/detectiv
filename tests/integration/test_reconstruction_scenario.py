@@ -1,19 +1,17 @@
 import numpy as np
+import pytest
 
-from detectiv.callbacks import TimeCallback
+from detectiv.callbacks import ReconstructionCallback, TimingCallback
 from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
-from detectiv.scenarios import (
-    PointScoringPlan,
-    ReconstructionScenario,
-    ScoringPlan,
-    SemiSupervisedTraining,
-)
+from detectiv.scenarios import ReconstructionScenario, SemiSupervisedTraining
 from detectiv.scoring import (
     MeanPointScoreAggregator,
     MeanSquaredWindowReconstructionError,
+    PointScoringPlan,
+    ReconstructionScoringPlan,
     UniformPointAssignment,
 )
 from detectiv.time_series import TemporalSplit
@@ -29,6 +27,18 @@ class ArrayImageSource(ImageSource):
 
     def __getitem__(self, index: int) -> np.ndarray:
         return self.values[index]
+
+
+class FailingFinishedCallback(ReconstructionCallback):
+    @property
+    def name(self) -> str:
+        return "failing_finished"
+
+    def on_run_finished(self, result: object) -> None:
+        raise RuntimeError("callback failure")
+
+    def on_run_failed(self, error: BaseException) -> None:
+        raise AssertionError("finished callbacks must not receive failure events")
 
 
 def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
@@ -50,7 +60,7 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
         labels=np.array([False, True]),
         series_length=6,
     )
-    timer = TimeCallback()
+    timer = TimingCallback()
     scenario = ReconstructionScenario(
         images=TemporalSplit(train=train, test=test),
         model=Autoencoder(
@@ -59,7 +69,7 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
         ),
         training_mode=SemiSupervisedTraining(),
         scoring_plans=(
-            ScoringPlan(
+            ReconstructionScoringPlan(
                 MeanSquaredWindowReconstructionError(),
                 (
                     PointScoringPlan(
@@ -69,19 +79,55 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
             ),
         ),
         callbacks=(timer,),
-        trainer=AutoencoderTrainer(epochs=1, batch_size=1, seed=7),
+        trainer=AutoencoderTrainer(epochs=1, batch_size=1, shuffle_seed=7),
     )
 
     result = scenario.run()
 
     assert len(result.training_losses) == 1
-    assert (
-        len(result.window_scores["mean_squared_window_reconstruction"].references) == 2
-    )
-    assert result.point_scores["mean_squared_window_reconstruction"]["uniform_mean"][
+    assert len(result.window_scores["mean_squared_window"].references) == 2
+    assert result.point_scores["mean_squared_window"]["uniform_mean"][
         "series"
     ].shape == (6,)
+    assert not result.point_scores["mean_squared_window"]["uniform_mean"][
+        "series"
+    ].flags.writeable
+    with pytest.raises(TypeError):
+        result.point_scores["other"] = {}  # type: ignore[index]
+    assert result.callbacks["timing"] is timer
     assert timer.elapsed_seconds is not None
+
+
+def test_callback_failure_after_completion_is_not_reported_as_run_failure() -> None:
+    images = _images(
+        values=[np.zeros((1, 4, 4))],
+        references=(WindowReference("series", 0, 4, 4),),
+        labels=np.array([False]),
+        series_length=4,
+    )
+    scenario = ReconstructionScenario(
+        images=TemporalSplit(train=images, test=images),
+        model=Autoencoder(
+            CNNEncoder(1, hidden_channels=(4,)),
+            CNNDecoder(4, hidden_channels=(), output_channels=1),
+        ),
+        training_mode=SemiSupervisedTraining(),
+        scoring_plans=(
+            ReconstructionScoringPlan(
+                MeanSquaredWindowReconstructionError(),
+                (
+                    PointScoringPlan(
+                        UniformPointAssignment(), MeanPointScoreAggregator()
+                    ),
+                ),
+            ),
+        ),
+        callbacks=(FailingFinishedCallback(),),
+        trainer=AutoencoderTrainer(epochs=1, batch_size=1, shuffle_seed=7),
+    )
+
+    with pytest.raises(RuntimeError, match="callback failure"):
+        scenario.run()
 
 
 def _images(

@@ -1,19 +1,27 @@
+from enum import StrEnum
 from typing import Self
 
 import numpy as np
 
 from detectiv.time_series import TimeSeriesDataset
 from detectiv.ts2i.channelization.base import Channelization
-from detectiv.ts2i.channelization.context import FeatureSelectionContext
+
+
+class FeatureSelectionScope(StrEnum):
+    WINDOW = "window"
+    TRAINING = "training"
 
 
 class HighestVariabilityFeatureChannelization(Channelization):
-    def __init__(self, n_features: int, context: FeatureSelectionContext) -> None:
+    def __init__(
+        self,
+        n_features: int,
+        scope: FeatureSelectionScope | str = FeatureSelectionScope.TRAINING,
+    ) -> None:
         if n_features <= 0:
             raise ValueError("n_features must be positive")
-        super().__init__(context)
-        self._selection_context = context
         self.n_features = n_features
+        self.scope = FeatureSelectionScope(scope)
         self._feature_indices: tuple[int, ...] | None = None
 
     @property
@@ -21,20 +29,24 @@ class HighestVariabilityFeatureChannelization(Channelization):
         return self._feature_indices
 
     def fit(self, train: TimeSeriesDataset) -> Self:
-        self._feature_indices = self._selection_context.fit_feature_indices(
-            self._select,
-            train,
-        )
+        if self.scope is FeatureSelectionScope.TRAINING:
+            values = np.concatenate(
+                tuple(train[series_id].values for series_id in train.series_ids)
+            )
+            self._feature_indices = self._select(values)
         return self
 
     def transform(self, window: np.ndarray) -> tuple[np.ndarray, ...]:
         if window.ndim != 2:
             raise ValueError("feature selection requires a two-dimensional window")
-        indices = self._selection_context.feature_indices(
-            self._select,
-            window,
-            self._feature_indices,
-        )
+        if self.scope is FeatureSelectionScope.WINDOW:
+            indices = self._select(window)
+        else:
+            if self._feature_indices is None:
+                raise RuntimeError("training feature selection must be fitted")
+            indices = self._feature_indices
+        if any(index >= window.shape[1] for index in indices):
+            raise ValueError("n_features must select available input features")
         return tuple(window[:, index] for index in indices)
 
     def _select(self, values: np.ndarray) -> tuple[int, ...]:

@@ -50,7 +50,7 @@ class ImageDataset:
         if len(source) != len(window_references):
             raise ValueError("source and window_references must have the same length")
         self.dataset_id = dataset_id
-        self.metadata = dict(metadata or {})
+        self.metadata = MappingProxyType(dict(metadata or {}))
         self.image_shape = image_shape
         self.window_references = tuple(window_references)
         self.source = source

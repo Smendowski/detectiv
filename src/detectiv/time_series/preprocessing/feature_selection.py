@@ -6,8 +6,8 @@ from detectiv.time_series.preprocessing.base import TimeSeriesPreprocessor
 
 class ConstantFeatureRemoval(TimeSeriesPreprocessor):
     def __init__(self, *, tolerance: float = 0.0) -> None:
-        if tolerance < 0:
-            raise ValueError("tolerance must be non-negative")
+        if not np.isfinite(tolerance) or tolerance < 0:
+            raise ValueError("tolerance must be finite and non-negative")
         self.tolerance = tolerance
         self._mask: np.ndarray | None = None
 
@@ -16,9 +16,10 @@ class ConstantFeatureRemoval(TimeSeriesPreprocessor):
         n_features = values[0].shape[1]
         if any(series.shape[1] != n_features for series in values):
             raise ValueError("all series must have the same number of features")
-        self._mask = np.ptp(np.concatenate(values), axis=0) > self.tolerance
-        if not np.any(self._mask):
+        mask = np.ptp(np.concatenate(values), axis=0) > self.tolerance
+        if not np.any(mask):
             raise ValueError("constant-feature removal would remove every feature")
+        self._mask = mask
         return self
 
     def transform(self, dataset: TimeSeriesDataset) -> TimeSeriesDataset:

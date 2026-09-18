@@ -40,6 +40,7 @@ def test_progressive_unfreeze_preserves_the_existing_optimizer() -> None:
     model = _model()
     strategy = ProgressiveEncoderUnfreezeStrategy(unfreeze_epoch=1)
     optimizer = strategy.initialize(model, torch.optim.Adam, 1e-3, 0.0)
+    assert [group["lr"] for group in optimizer.param_groups] == [1e-4, 1e-3]
     decoder_parameter = next(model.decoder.parameters())
     decoder_parameter.grad = torch.ones_like(decoder_parameter)
     optimizer.step()
@@ -57,7 +58,7 @@ def test_progressive_unfreeze_preserves_the_existing_optimizer() -> None:
     assert decoder_parameter in updated.state
     assert all(parameter.requires_grad for parameter in model.encoder.parameters())
     assert model.encoder.training
-    assert [group["lr"] for group in updated.param_groups] == [1e-3, 1e-4]
+    assert [group["lr"] for group in updated.param_groups] == [1e-4, 1e-3]
 
 
 def test_differential_learning_rate_strategy_unfreezes_the_encoder() -> None:

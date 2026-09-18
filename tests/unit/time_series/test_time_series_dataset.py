@@ -91,3 +91,16 @@ def test_dataset_rejects_mixed_named_and_unnamed_features() -> None:
                 "unnamed": TimeSeries(np.ones((2, 1)), series_id="unnamed"),
             },
         )
+
+
+def test_dataset_mappings_are_immutable() -> None:
+    dataset = TimeSeriesDataset(
+        "dataset",
+        {"series": TimeSeries(np.ones((2, 1)), series_id="series")},
+        metadata={"source": "test"},
+    )
+
+    with pytest.raises(TypeError):
+        dataset.series["other"] = dataset["series"]  # type: ignore[index]
+    with pytest.raises(TypeError):
+        dataset.metadata["source"] = "other"  # type: ignore[index]

@@ -30,7 +30,7 @@ class AutoencoderTrainer:
     learning_rate: float = 1e-3
     weight_decay: float = 0.0
     device: str = "auto"
-    seed: int | None = None
+    shuffle_seed: int | None = None
     optimizer: OptimizerFactory = torch.optim.AdamW
     scheduler_factory: SchedulerFactory | None = None
     transfer_strategy: TransferLearningStrategy = field(
@@ -79,8 +79,8 @@ class AutoencoderTrainer:
             raise ValueError("early stopping requires validation images")
 
         generator = None
-        if self.seed is not None:
-            generator = torch.Generator().manual_seed(self.seed)
+        if self.shuffle_seed is not None:
+            generator = torch.Generator().manual_seed(self.shuffle_seed)
         loader = DataLoader(
             dataset,
             batch_size=self.batch_size,

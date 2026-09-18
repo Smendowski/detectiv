@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from detectiv.scoring import (
+from detectiv.scoring.base import ReconstructionScorer
+from detectiv.scoring.propagation import (
     PointAssignment,
     PointScoreAggregator,
-    ReconstructionScorer,
 )
 
 
@@ -18,7 +18,7 @@ class PointScoringPlan:
 
 
 @dataclass(frozen=True)
-class ScoringPlan:
+class ReconstructionScoringPlan:
     scorer: ReconstructionScorer
     point_scoring: tuple[PointScoringPlan, ...]
 
@@ -30,16 +30,4 @@ class ScoringPlan:
 
     @property
     def name(self) -> str:
-        return _identifier(self.scorer)
-
-
-def _identifier(value: object) -> str:
-    name = type(value).__name__
-    for suffix in ("Error", "Strategy"):
-        name = name.removesuffix(suffix)
-    words: list[str] = []
-    for character in name:
-        if character.isupper() and words:
-            words.append("_")
-        words.append(character.lower())
-    return "".join(words)
+        return self.scorer.name

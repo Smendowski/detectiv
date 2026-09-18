@@ -1,19 +1,19 @@
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 
 import numpy as np
 
-from detectiv.callbacks.base import ScenarioCallback
+from detectiv.callbacks.base import ReconstructionCallback
 from detectiv.images import ImageDataset
 from detectiv.models.autoencoders import (
     Autoencoder,
     AutoencoderTrainer,
     TrainingHistory,
 )
-from detectiv.scenarios.scoring import ScoringPlan
 from detectiv.scenarios.training import TrainingMode
 from detectiv.scoring import (
+    ReconstructionScoringPlan,
     WindowEvidenceBatch,
 )
 from detectiv.time_series import TemporalSplit
@@ -24,6 +24,9 @@ class ReconstructionScenarioResult:
     window_scores: Mapping[str, WindowEvidenceBatch]
     point_scores: Mapping[str, Mapping[str, Mapping[str, np.ndarray]]]
     training: TrainingHistory
+    callbacks: Mapping[str, ReconstructionCallback] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
 
     @property
     def training_losses(self) -> tuple[float, ...]:
@@ -41,8 +44,8 @@ class ReconstructionScenario:
         images: TemporalSplit[ImageDataset],
         model: Autoencoder,
         training_mode: TrainingMode,
-        scoring_plans: Sequence[ScoringPlan],
-        callbacks: Sequence[ScenarioCallback] = (),
+        scoring_plans: Sequence[ReconstructionScoringPlan],
+        callbacks: Sequence[ReconstructionCallback] = (),
         trainer: AutoencoderTrainer | None = None,
     ) -> None:
         self.images = images
@@ -52,13 +55,15 @@ class ReconstructionScenario:
             raise ValueError("at least one scoring plan is required")
         if len({plan.name for plan in scoring_plans}) != len(scoring_plans):
             raise ValueError("scoring plan names must be unique")
+        if len({callback.name for callback in callbacks}) != len(callbacks):
+            raise ValueError("callback names must be unique")
         self.scoring_plans = tuple(scoring_plans)
         self.callbacks = tuple(callbacks)
         self.trainer = trainer or AutoencoderTrainer()
 
     def run(self) -> ReconstructionScenarioResult:
-        self._notify_started()
         try:
+            self._notify_started()
             partition = self.training_mode.partition(
                 self.images.train,
                 self.images.validation,
@@ -76,12 +81,17 @@ class ReconstructionScenario:
                 for plan in self.scoring_plans
             }
             result = ReconstructionScenarioResult(
-                window_scores=window_scores,
-                point_scores={
-                    plan.name: self._propagate(plan, window_scores[plan.name])
-                    for plan in self.scoring_plans
-                },
+                window_scores=MappingProxyType(window_scores),
+                point_scores=MappingProxyType(
+                    {
+                        plan.name: self._propagate(plan, window_scores[plan.name])
+                        for plan in self.scoring_plans
+                    }
+                ),
                 training=training,
+                callbacks=MappingProxyType(
+                    {callback.name: callback for callback in self.callbacks}
+                ),
             )
         except BaseException as error:
             self._notify_failed(error)
@@ -90,7 +100,7 @@ class ReconstructionScenario:
         return result
 
     def _propagate(
-        self, plan: ScoringPlan, scores: WindowEvidenceBatch
+        self, plan: ReconstructionScoringPlan, scores: WindowEvidenceBatch
     ) -> Mapping[str, Mapping[str, np.ndarray]]:
         series_ids = dict.fromkeys(
             reference.series_id for reference in scores.references
@@ -98,9 +108,13 @@ class ReconstructionScenario:
         point_scores = {
             point_scoring.name: MappingProxyType(
                 {
-                    series_id: point_scoring.aggregator.aggregate(
-                        point_scoring.assignment.assign(scores.for_series(series_id)),
-                        self.images.test.series_lengths[series_id],
+                    series_id: _readonly(
+                        point_scoring.aggregator.aggregate(
+                            point_scoring.assignment.assign(
+                                scores.for_series(series_id)
+                            ),
+                            self.images.test.series_lengths[series_id],
+                        )
                     )
                     for series_id in series_ids
                 }
@@ -124,3 +138,9 @@ class ReconstructionScenario:
     def _notify_failed(self, error: BaseException) -> None:
         for callback in self.callbacks:
             callback.on_run_failed(error)
+
+
+def _readonly(values: np.ndarray) -> np.ndarray:
+    result = np.array(values, copy=True)
+    result.setflags(write=False)
+    return result

@@ -1,5 +1,5 @@
-from detectiv.callbacks.base import ScenarioCallback
+from detectiv.callbacks.base import ReconstructionCallback
 from detectiv.callbacks.evaluation import EvaluationCallback
-from detectiv.callbacks.timing import TimeCallback
+from detectiv.callbacks.timing import TimingCallback
 
-__all__ = ["EvaluationCallback", "ScenarioCallback", "TimeCallback"]
+__all__ = ["EvaluationCallback", "ReconstructionCallback", "TimingCallback"]

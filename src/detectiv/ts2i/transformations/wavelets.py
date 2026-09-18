@@ -23,11 +23,11 @@ class _ContinuousWavelet(TS2ITransformation):
 
     def __init__(
         self,
-        output_normalization: WaveletOutputNormalization = (
+        output_normalization: WaveletOutputNormalization | str = (
             WaveletOutputNormalization.UNIT_INTERVAL
         ),
     ) -> None:
-        self.output_normalization = output_normalization
+        self.output_normalization = WaveletOutputNormalization(output_normalization)
 
     @property
     def input_kinds(self) -> frozenset[TransformationInput]:

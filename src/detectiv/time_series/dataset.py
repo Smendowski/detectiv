@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 from detectiv.time_series.series import TimeSeries
@@ -27,8 +28,8 @@ class TimeSeriesDataset:
         _validate_feature_schema(series)
 
         self.dataset_id = dataset_id
-        self.metadata = dict(metadata or {})
-        self.series = dict(series)
+        self.metadata = MappingProxyType(dict(metadata or {}))
+        self.series = MappingProxyType(dict(series))
 
     @property
     def series_ids(self) -> tuple[str, ...]:

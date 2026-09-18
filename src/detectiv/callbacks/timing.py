@@ -1,16 +1,20 @@
 from time import perf_counter
 from typing import TYPE_CHECKING
 
-from detectiv.callbacks.base import ScenarioCallback
+from detectiv.callbacks.base import ReconstructionCallback
 
 if TYPE_CHECKING:
     from detectiv.scenarios.reconstruction import ReconstructionScenarioResult
 
 
-class TimeCallback(ScenarioCallback):
+class TimingCallback(ReconstructionCallback):
     def __init__(self) -> None:
         self.elapsed_seconds: float | None = None
         self._started_at: float | None = None
+
+    @property
+    def name(self) -> str:
+        return "timing"
 
     def on_run_started(self) -> None:
         self.elapsed_seconds = None
@@ -23,5 +27,8 @@ class TimeCallback(ScenarioCallback):
         self._finish()
 
     def _finish(self) -> None:
-        if self._started_at is not None:
-            self.elapsed_seconds = perf_counter() - self._started_at
+        started_at = self._started_at
+        if started_at is None:
+            return
+        self._started_at = None
+        self.elapsed_seconds = perf_counter() - started_at

@@ -44,9 +44,11 @@ class WindowSpec:
     labeling_strategy: WindowLabelingStrategy = WindowLabelingStrategy.OR_POOLING
 
     def __post_init__(self) -> None:
-        if self.length <= 0:
+        length = _positive_index(self.length, "length")
+        stride = None if self.stride is None else _positive_index(self.stride, "stride")
+        if length <= 0:
             raise ValueError("length must be positive")
-        if self.stride is not None and self.stride <= 0:
+        if stride is not None and stride <= 0:
             raise ValueError("stride must be positive")
         try:
             tail = TailPolicy(self.tail)
@@ -58,6 +60,8 @@ class WindowSpec:
             raise ValueError(
                 f"unsupported window labeling strategy: {self.labeling_strategy!r}"
             ) from error
+        object.__setattr__(self, "length", length)
+        object.__setattr__(self, "stride", stride)
         object.__setattr__(self, "tail", tail)
         object.__setattr__(self, "labeling_strategy", labeling_strategy)
 
@@ -67,6 +71,15 @@ class WindowSpec:
 
     def windower(self) -> "Windower":
         return Windower(self.length, self.stride, self.tail)
+
+
+def _positive_index(value: int, name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer")
+    try:
+        return index(value)
+    except TypeError as error:
+        raise ValueError(f"{name} must be an integer") from error
 
 
 @dataclass(frozen=True)

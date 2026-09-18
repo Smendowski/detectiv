@@ -4,13 +4,9 @@ from typing import Self
 import numpy as np
 
 from detectiv.time_series import TimeSeriesDataset
-from detectiv.ts2i.channelization.context import ChannelizationContext
 
 
 class Channelization(ABC):
-    def __init__(self, context: ChannelizationContext) -> None:
-        self.context = context
-
     def fit(self, train: TimeSeriesDataset) -> Self:
         return self
 

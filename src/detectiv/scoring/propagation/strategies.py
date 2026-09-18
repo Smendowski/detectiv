@@ -4,7 +4,6 @@ from detectiv.scoring.propagation.base import PointAssignment, PointScoreAggrega
 from detectiv.scoring.window_scores import (
     WindowEvidenceBatch,
     WindowPointScoreBatch,
-    WindowSaliencyBatch,
     WindowScoreBatch,
 )
 
@@ -22,38 +21,6 @@ class UniformPointAssignment(PointAssignment):
                 np.full(reference.valid_length, value)
                 for value, reference in zip(
                     evidence.values, evidence.references, strict=True
-                )
-            ),
-            evidence.references,
-        )
-
-
-class DirectPointAssignment(PointAssignment):
-    @property
-    def name(self) -> str:
-        return "direct"
-
-    def assign(self, evidence: WindowEvidenceBatch) -> WindowPointScoreBatch:
-        if not isinstance(evidence, WindowPointScoreBatch):
-            raise TypeError("direct assignment requires one score per window point")
-        return evidence
-
-
-class SaliencyWeightedPointAssignment(PointAssignment):
-    @property
-    def name(self) -> str:
-        return "saliency_weighted"
-
-    def assign(self, evidence: WindowEvidenceBatch) -> WindowPointScoreBatch:
-        if not isinstance(evidence, WindowSaliencyBatch):
-            raise TypeError(
-                "saliency-weighted assignment requires window scores and saliencies"
-            )
-        return WindowPointScoreBatch(
-            tuple(
-                score * saliency / saliency.mean()
-                for score, saliency in zip(
-                    evidence.values, evidence.saliencies, strict=True
                 )
             ),
             evidence.references,

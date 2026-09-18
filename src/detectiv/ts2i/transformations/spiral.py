@@ -20,12 +20,14 @@ class Spiral(TS2ITransformation):
     def __init__(
         self,
         arms: int = 2,
-        input_normalization: SpiralInputNormalization = SpiralInputNormalization.NONE,
+        input_normalization: SpiralInputNormalization | str = (
+            SpiralInputNormalization.NONE
+        ),
     ) -> None:
         if arms <= 0:
             raise ValueError("arms must be positive")
         self.arms = arms
-        self.input_normalization = input_normalization
+        self.input_normalization = SpiralInputNormalization(input_normalization)
 
     @property
     def input_kinds(self) -> frozenset[TransformationInput]:

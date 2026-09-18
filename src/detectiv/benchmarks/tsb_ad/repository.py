@@ -36,7 +36,7 @@ class TSBADRepository:
         if series.n_timesteps < 2:
             raise ValueError("series must contain at least two observations")
         feature = series.values[:, feature_index]
-        find_length_rank, _ = self._functions()
+        find_length_rank = self._find_length_rank()
         return int(find_length_rank(feature.reshape(-1, 1), rank=1))
 
     def evaluator(
@@ -64,7 +64,7 @@ class TSBADRepository:
         version: str,
         thresholds: int,
     ) -> dict[str, float]:
-        _, get_metrics = self._functions()
+        get_metrics = self._get_metrics()
         metrics = get_metrics(
             point_scores,
             labels,
@@ -74,11 +74,15 @@ class TSBADRepository:
         )
         return {name: float(value) for name, value in metrics.items()}
 
-    def _functions(self) -> tuple[Any, Any]:
+    def _get_metrics(self) -> Any:
         self._package()
         metric_module = import_module("TSB_AD.evaluation.metrics")
+        return metric_module.get_metrics
+
+    def _find_length_rank(self) -> Any:
+        self._package()
         window_module = import_module("TSB_AD.utils.slidingWindows")
-        return window_module.find_length_rank, metric_module.get_metrics
+        return window_module.find_length_rank
 
     def _package(self) -> ModuleType:
         package_directory = self.source_directory / "TSB_AD"

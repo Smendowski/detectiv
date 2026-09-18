@@ -10,6 +10,9 @@ from detectiv.images import ImageDataset
 from detectiv.images.io.readers.images import ImageFolderReader
 from detectiv.time_series import TemporalSplit
 
+MAX_ARCHIVE_MEMBERS = 10_000
+MAX_ARCHIVE_UNCOMPRESSED_BYTES = 1 << 30
+
 
 class ImageArtifactReader:
     def __init__(self, path: Path) -> None:
@@ -30,9 +33,17 @@ class ImageArtifactReader:
     def _extract(self, root: Path) -> None:
         root = root.resolve()
         with zipfile.ZipFile(self.path) as archive:
-            for member in archive.infolist():
-                if member.is_dir():
-                    continue
+            members = tuple(
+                member for member in archive.infolist() if not member.is_dir()
+            )
+            if len(members) > MAX_ARCHIVE_MEMBERS:
+                raise ValueError("image archive contains too many members")
+            if (
+                sum(member.file_size for member in members)
+                > MAX_ARCHIVE_UNCOMPRESSED_BYTES
+            ):
+                raise ValueError("image archive expands beyond the allowed size")
+            for member in members:
                 if member.flag_bits & 1:
                     raise ValueError("encrypted image archives are not supported")
                 if stat.S_IFMT(member.external_attr >> 16) == stat.S_IFLNK:

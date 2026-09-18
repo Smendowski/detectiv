@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
-from detectiv.callbacks.base import ScenarioCallback
+from detectiv.callbacks.base import ReconstructionCallback
 
 if TYPE_CHECKING:
     from detectiv.scenarios.reconstruction import ReconstructionScenarioResult
@@ -16,7 +16,7 @@ class _PointScoreEvaluator(Protocol):
     ) -> Mapping[str, float]: ...
 
 
-class EvaluationCallback(ScenarioCallback):
+class EvaluationCallback(ReconstructionCallback):
     def __init__(
         self,
         evaluator: _PointScoreEvaluator,
@@ -27,6 +27,10 @@ class EvaluationCallback(ScenarioCallback):
         self.metrics: (
             Mapping[str, Mapping[str, Mapping[str, Mapping[str, float]]]] | None
         ) = None
+
+    @property
+    def name(self) -> str:
+        return "evaluation"
 
     def on_run_started(self) -> None:
         self.metrics = None
@@ -47,7 +51,10 @@ class EvaluationCallback(ScenarioCallback):
                     series_id: MappingProxyType(
                         dict(
                             self.evaluator.evaluate(
-                                point_scores,
+                                _validated_point_scores(
+                                    point_scores,
+                                    self.labels[series_id],
+                                ),
                                 self.labels[series_id],
                             )
                         )
@@ -74,3 +81,12 @@ def _validated_labels(labels: Mapping[str, np.ndarray]) -> Mapping[str, np.ndarr
         values_for_series.setflags(write=False)
         values[series_id] = values_for_series
     return MappingProxyType(values)
+
+
+def _validated_point_scores(point_scores: np.ndarray, labels: np.ndarray) -> np.ndarray:
+    values = np.asarray(point_scores, dtype=np.float64)
+    if values.ndim != 1 or len(values) != len(labels) or not np.isfinite(values).all():
+        raise ValueError(
+            "point scores must be finite one-dimensional arrays aligned with labels"
+        )
+    return values

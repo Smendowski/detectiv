@@ -3,21 +3,15 @@ from collections.abc import Sequence
 import numpy as np
 
 from detectiv.ts2i.channelization.base import Channelization
-from detectiv.ts2i.channelization.context import WindowContext
 
 
 class FeatureChannelization(Channelization):
-    def __init__(
-        self,
-        feature_indices: Sequence[int],
-        context: WindowContext,
-    ) -> None:
+    def __init__(self, feature_indices: Sequence[int]) -> None:
         indices = tuple(feature_indices)
         if not indices or any(index < 0 for index in indices):
             raise ValueError("feature_indices must contain non-negative indices")
         if len(set(indices)) != len(indices):
             raise ValueError("feature_indices must be unique")
-        super().__init__(context)
         self.feature_indices = indices
 
     def transform(self, window: np.ndarray) -> tuple[np.ndarray, ...]:

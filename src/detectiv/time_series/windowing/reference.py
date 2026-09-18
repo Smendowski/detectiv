@@ -13,5 +13,5 @@ class WindowReference:
             raise ValueError("series_id must not be empty")
         if self.start < 0 or self.stop <= self.start:
             raise ValueError("window bounds must be ordered and non-negative")
-        if not 0 < self.valid_length <= self.stop - self.start:
-            raise ValueError("valid_length must lie within the window bounds")
+        if self.valid_length <= 0 or self.stop != self.start + self.valid_length:
+            raise ValueError("valid_length must match the window bounds")

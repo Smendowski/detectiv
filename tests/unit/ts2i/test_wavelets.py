@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import pywt
 from skimage.transform import resize
 
@@ -37,3 +38,10 @@ def test_rwt_can_clip_like_prism_image_storage() -> None:
 
     assert image.min() >= 0
     assert image.max() <= 1
+
+
+def test_rwt_normalizes_string_configuration_values() -> None:
+    assert RWT("none").output_normalization is WaveletOutputNormalization.NONE
+
+    with pytest.raises(ValueError, match="unsupported"):
+        RWT("unsupported")

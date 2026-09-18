@@ -1,3 +1,5 @@
+from hashlib import blake2b
+
 import numpy as np
 
 from detectiv.images import ImageSource
@@ -19,10 +21,12 @@ class GeneratedImageSource(ImageSource):
         projection: ProjectionScheme,
         size: tuple[int, int],
         seed: int,
+        split: str,
     ) -> None:
         self._projection = projection
         self._size = size
         self._seed = seed
+        self._split = split
 
         windower = window.windower()
         self._batches = {
@@ -91,7 +95,23 @@ class GeneratedImageSource(ImageSource):
     def __getitem__(self, index: int) -> np.ndarray:
         if not -len(self) <= index < len(self):
             raise IndexError("image index out of range")
+        if index < 0:
+            index += len(self)
         series_id, window_index = self._entries[index]
         window = self._batches[series_id].values[window_index]
-        rng = np.random.default_rng(np.random.SeedSequence((self._seed, index)))
+        rng = np.random.default_rng(self._seed_sequence(self.window_references[index]))
         return self._projection.render(window, self._size, rng=rng)
+
+    def _seed_sequence(self, reference: WindowReference) -> np.random.SeedSequence:
+        material = "\0".join(
+            (
+                str(self._seed),
+                self._split,
+                reference.series_id,
+                str(reference.start),
+                str(reference.stop),
+                str(reference.valid_length),
+            )
+        ).encode()
+        entropy = int.from_bytes(blake2b(material, digest_size=16).digest(), "little")
+        return np.random.SeedSequence(entropy)

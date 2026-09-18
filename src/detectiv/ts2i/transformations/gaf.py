@@ -22,11 +22,11 @@ class _GAF(TS2ITransformation):
 
     def __init__(
         self,
-        output_normalization: GAFOutputNormalization = (
+        output_normalization: GAFOutputNormalization | str = (
             GAFOutputNormalization.UNIT_INTERVAL
         ),
     ) -> None:
-        self.output_normalization = output_normalization
+        self.output_normalization = GAFOutputNormalization(output_normalization)
 
     @property
     def input_kinds(self) -> frozenset[TransformationInput]:

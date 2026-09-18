@@ -1,7 +1,7 @@
 import numpy as np
+import pytest
 
 from detectiv.ts2i.channelization import IdentityChannelization
-from detectiv.ts2i.channelization.context import WindowContext
 from detectiv.ts2i.projection import ProjectionScheme
 from detectiv.ts2i.transformations import Spiral, SpiralInputNormalization
 
@@ -36,7 +36,7 @@ def test_spiral_can_normalize_each_input_window() -> None:
 
 def test_spiral_accepts_a_single_feature_window() -> None:
     image = (
-        ProjectionScheme(IdentityChannelization(WindowContext()))
+        ProjectionScheme(IdentityChannelization())
         .channels(Spiral())
         .replicate(n_channels=3)
         .render(np.arange(8, dtype=np.float32).reshape(8, 1), (8, 8))
@@ -44,3 +44,12 @@ def test_spiral_accepts_a_single_feature_window() -> None:
 
     assert image.shape == (3, 8, 8)
     np.testing.assert_array_equal(image[0], image[1])
+
+
+def test_spiral_normalizes_string_configuration_values() -> None:
+    assert Spiral(input_normalization="unit_interval").input_normalization is (
+        SpiralInputNormalization.UNIT_INTERVAL
+    )
+
+    with pytest.raises(ValueError, match="unsupported"):
+        Spiral(input_normalization="unsupported")

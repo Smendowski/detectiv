@@ -4,7 +4,11 @@ if TYPE_CHECKING:
     from detectiv.scenarios.reconstruction import ReconstructionScenarioResult
 
 
-class ScenarioCallback:
+class ReconstructionCallback:
+    @property
+    def name(self) -> str:
+        raise NotImplementedError
+
     def on_run_started(self) -> None:
         pass
 

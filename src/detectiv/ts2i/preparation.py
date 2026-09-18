@@ -55,6 +55,7 @@ class ImagePreparation:
                 fitted_projection,
                 size,
                 seed,
+                SplitPart.VALIDATION,
             )
         return TemporalSplit(
             train=self._images(
@@ -63,6 +64,7 @@ class ImagePreparation:
                 fitted_projection,
                 size,
                 seed,
+                SplitPart.TRAIN,
             ),
             validation=validation,
             test=self._images(
@@ -71,6 +73,7 @@ class ImagePreparation:
                 fitted_projection,
                 size,
                 seed,
+                SplitPart.TEST,
             ),
         )
 
@@ -104,6 +107,7 @@ class ImagePreparation:
         projection: ProjectionScheme,
         size: tuple[int, int],
         seed: int,
+        split: SplitPart,
     ) -> ImageDataset:
         source = GeneratedImageSource(
             dataset,
@@ -111,6 +115,7 @@ class ImagePreparation:
             projection=projection,
             size=size,
             seed=seed,
+            split=split.value,
         )
         return ImageDataset(
             f"{dataset.dataset_id}:images",
@@ -120,7 +125,9 @@ class ImagePreparation:
             window_labels=source.window_labels,
             series_lengths={
                 series_id: dataset[series_id].n_timesteps
-                for series_id in dataset.series_ids
+                for series_id in {
+                    reference.series_id for reference in source.window_references
+                }
             },
             metadata=dataset.metadata,
         )

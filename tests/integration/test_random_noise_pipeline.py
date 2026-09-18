@@ -22,7 +22,6 @@ from detectiv.time_series.windowing import (
 )
 from detectiv.ts2i import ImagePreparation
 from detectiv.ts2i.channelization import IdentityChannelization
-from detectiv.ts2i.channelization.context import WindowContext
 from detectiv.ts2i.projection import ConfiguredProjectionStrategy, ProjectionScheme
 from detectiv.ts2i.transformations import RandomNoise
 
@@ -50,7 +49,7 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
         },
     )
     projection = ConfiguredProjectionStrategy(
-        ProjectionScheme(IdentityChannelization(WindowContext()))
+        ProjectionScheme(IdentityChannelization())
         .channels(RandomNoise())
         .replicate(n_channels=3)
     )
@@ -71,6 +70,8 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
     assert images.test.window_references[-1].valid_length == 1
     first = images.test[0]
     np.testing.assert_array_equal(first, images.test[0])
+    np.testing.assert_array_equal(images.test[-1], images.test[len(images.test) - 1])
+    assert not np.array_equal(images.train[0], images.test[0])
     np.testing.assert_array_equal(first[0], first[1])
     np.testing.assert_array_equal(first[1], first[2])
     assert images.train.window_labels is not None
@@ -96,7 +97,7 @@ def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(
             ConfiguredProjectionStrategy(
-                ProjectionScheme(IdentityChannelization(WindowContext()))
+                ProjectionScheme(IdentityChannelization())
                 .channels(RandomNoise())
                 .replicate(n_channels=3)
             )
@@ -148,7 +149,7 @@ def test_image_artifacts_round_trip_lazily(tmp_path: Path) -> None:
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(
             ConfiguredProjectionStrategy(
-                ProjectionScheme(IdentityChannelization(WindowContext()))
+                ProjectionScheme(IdentityChannelization())
                 .channels(RandomNoise())
                 .replicate(n_channels=3)
             )

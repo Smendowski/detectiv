@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from pyts.image import GramianAngularField
 from skimage.transform import resize
 
@@ -30,3 +31,10 @@ def test_gasf_can_preserve_the_prism_output_range() -> None:
 
     assert image.min() < 0
     assert image.max() <= 1
+
+
+def test_gasf_normalizes_string_configuration_values() -> None:
+    assert GASF("none").output_normalization is GAFOutputNormalization.NONE
+
+    with pytest.raises(ValueError, match="unsupported"):
+        GASF("unsupported")

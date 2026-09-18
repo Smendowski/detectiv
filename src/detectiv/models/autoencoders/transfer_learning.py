@@ -78,6 +78,22 @@ class ProgressiveEncoderUnfreezeStrategy(FrozenEncoderStrategy):
         self.unfreeze_epoch = unfreeze_epoch
         self.encoder_learning_rate_scale = encoder_learning_rate_scale
 
+    def initialize(
+        self,
+        model: Autoencoder,
+        optimizer: OptimizerFactory,
+        learning_rate: float,
+        weight_decay: float,
+    ) -> optim.Optimizer:
+        model.encoder.freeze()
+        return _differential_optimizer(
+            optimizer,
+            model,
+            learning_rate,
+            weight_decay,
+            self.encoder_learning_rate_scale,
+        )
+
     def on_epoch_started(
         self,
         epoch: int,
@@ -99,13 +115,6 @@ class ProgressiveEncoderUnfreezeStrategy(FrozenEncoderStrategy):
 
         model.encoder.unfreeze()
         model.encoder.train()
-        optimizer.add_param_group(
-            {
-                "params": model.encoder.parameters(),
-                "lr": learning_rate * self.encoder_learning_rate_scale,
-                "weight_decay": weight_decay,
-            }
-        )
         return optimizer
 
 

@@ -16,18 +16,19 @@ class TorchImageDataset(TorchDataset[Tensor]):
         indices: Sequence[int] | NDArray[np.intp] | None = None,
     ) -> None:
         self.images = images
-        self.indices = np.arange(len(images), dtype=np.intp)
+        self._indices = np.arange(len(images), dtype=np.intp)
         if indices is not None:
-            self.indices = np.asarray(indices, dtype=np.intp)
-        if self.indices.ndim != 1 or (
-            len(self.indices)
-            and ((self.indices < 0).any() or (self.indices >= len(images)).any())
+            self._indices = np.array(indices, dtype=np.intp, copy=True)
+        if self._indices.ndim != 1 or (
+            len(self._indices)
+            and ((self._indices < 0).any() or (self._indices >= len(images)).any())
         ):
             raise ValueError("indices must select images from the dataset")
+        self._indices.setflags(write=False)
 
     def __len__(self) -> int:
-        return len(self.indices)
+        return len(self._indices)
 
     def __getitem__(self, index: int) -> Tensor:
-        image = np.ascontiguousarray(self.images[int(self.indices[index])])
+        image = np.ascontiguousarray(self.images[int(self._indices[index])])
         return torch.as_tensor(image, dtype=torch.float32)

@@ -1,8 +1,10 @@
 import numpy as np
 
 from detectiv.time_series import TimeSeries, TimeSeriesDataset
-from detectiv.ts2i.channelization import HighestVariabilityFeatureChannelization
-from detectiv.ts2i.channelization.context import TrainingSetContext
+from detectiv.ts2i.channelization import (
+    FeatureSelectionScope,
+    HighestVariabilityFeatureChannelization,
+)
 from detectiv.ts2i.projection import ConfiguredProjectionStrategy, ProjectionScheme
 from detectiv.ts2i.transformations import Spiral
 
@@ -28,7 +30,7 @@ def test_fitted_projection_scheme_isolated_from_later_fits() -> None:
     )
     strategy = ConfiguredProjectionStrategy(
         ProjectionScheme(
-            HighestVariabilityFeatureChannelization(1, TrainingSetContext())
+            HighestVariabilityFeatureChannelization(1, FeatureSelectionScope.TRAINING)
         ).channels(Spiral())
     )
 
