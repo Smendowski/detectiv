@@ -1,6 +1,7 @@
 from detectiv.scenarios.artifacts import RunArtifacts, RunArtifactWriter
 from detectiv.scenarios.reconstruction import (
     ReconstructionScenario,
+    ReconstructionScenarioInspection,
     ReconstructionScenarioResult,
 )
 from detectiv.scenarios.training import (
@@ -17,6 +18,7 @@ from detectiv.scenarios.validation import (
 __all__ = [
     "RandomHoldout",
     "ReconstructionScenario",
+    "ReconstructionScenarioInspection",
     "ReconstructionScenarioResult",
     "RunArtifactWriter",
     "RunArtifacts",

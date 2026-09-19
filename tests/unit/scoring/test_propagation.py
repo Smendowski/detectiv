@@ -66,3 +66,16 @@ def test_aggregator_resolves_uncovered_points() -> None:
         MeanPointScoreAggregator(UncoveredPolicy.EDGE_PAD).aggregate(contributions, 3),
         [1, 1, 1],
     )
+
+
+def test_aggregator_rejects_contributions_from_multiple_series() -> None:
+    scores = WindowScoreBatch(
+        np.array([1.0, 3.0]),
+        (
+            WindowReference("first", 0, 2, 2),
+            WindowReference("second", 0, 2, 2),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="one series"):
+        MeanPointScoreAggregator().aggregate(UniformPointAssignment().assign(scores), 2)

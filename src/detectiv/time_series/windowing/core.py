@@ -6,7 +6,7 @@ from typing import SupportsIndex, cast
 import numpy as np
 from numpy.typing import NDArray
 
-from detectiv.time_series import TimeSeries
+from detectiv.time_series.series import TimeSeries
 
 
 class WindowMode(StrEnum):
@@ -91,6 +91,8 @@ class WindowBatch:
 
     def __post_init__(self) -> None:
         values = np.asarray(self.values)
+        if values.flags.writeable:
+            values = np.array(values, copy=True)
         if values.ndim != 3 or values.shape[1] <= 0 or values.shape[2] <= 0:
             raise ValueError(
                 "window values must have shape (n_windows, length, n_features)"
@@ -208,7 +210,7 @@ class Windower:
             )
             starts = np.empty(0, dtype=np.intp)
 
-        tail_start = n_complete * self.stride
+        tail_start = 0 if not n_complete else int(starts[-1]) + self.length
         if self.spec.tail is TailPolicy.DROP or tail_start >= series.n_timesteps:
             return WindowBatch(values, starts, series.n_timesteps)
 

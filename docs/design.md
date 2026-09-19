@@ -127,7 +127,7 @@ images = (
         test=WindowSpec(64, stride=1, tail=TailPolicy.EDGE_PAD),
     )
     .project(
-        FixedProjectionStrategy(
+        ConfiguredProjectionStrategy(
             ProjectionScheme(IdentityChannelization())
             .channels(RandomNoise())
             .replicate(n_channels=3)
@@ -137,8 +137,24 @@ images = (
 )
 ```
 
-`images.train` and `images.test` are lazy `ImageDataset` instances. A future
-`TorchImageDataset` adapter will expose them to PyTorch's `DataLoader`.
+Inspect the configured image geometry before constructing or training a model:
+
+```python
+inspection = (
+    ImagePreparation(dataset)
+    .split(splitter)
+    .window(train=train_window, validation=validation_window, test=test_window)
+    .project(projection)
+    .inspect((64, 64))
+)
+```
+
+The inspection reports image counts, image shape, and point coverage for every
+series and split. `ReconstructionScenario.inspect()` similarly reports the
+configured image counts, scoring plans, and callbacks without training.
+
+`images.train` and `images.test` are lazy `ImageDataset` instances.
+`TorchImageDataset` adapts them to PyTorch's `DataLoader`.
 
 `WindowLabelingStrategy` controls how optional window metadata is derived:
 `OR_POOLING`, `START`, or `END`. It never changes `TimeSeries.labels`; a training
@@ -150,16 +166,18 @@ folder plus `manifest.csv`. PNG is the default, matching SPIRAL/ImageFolder usag
 NPY is available for lossless arbitrary-channel output. The manifest is the canonical
 order and records each original window location.
 
-The PRISM-style PCA and MSM variants change only the channelization:
+Alternative channelizations change only the channelization:
 
 ```python
-projection = FixedProjectionStrategy(
-    ProjectionScheme(PCA(n_components=3)).channels(
+projection = ConfiguredProjectionStrategy(
+    ProjectionScheme(PCAChannelization(n_components=3)).channels(
         RandomNoise(), RandomNoise(), RandomNoise()
     )
 )
 
-msm_projection = FixedProjectionStrategy(
-    ProjectionScheme(MSM()).channels(RandomNoise(), RandomNoise(), RandomNoise())
+mean_std_max_projection = ConfiguredProjectionStrategy(
+    ProjectionScheme(MeanStdMaxChannelization()).channels(
+        RandomNoise(), RandomNoise(), RandomNoise()
+    )
 )
 ```

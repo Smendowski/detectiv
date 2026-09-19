@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Self
 
-from detectiv.time_series import TimeSeriesDataset
+from detectiv.time_series.dataset import TimeSeriesDataset
 
 
 class TimeSeriesPreprocessor(ABC):

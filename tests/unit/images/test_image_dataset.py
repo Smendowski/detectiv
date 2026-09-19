@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from detectiv.images import ImageDataset, ImageShape, ImageSource
+from detectiv.images import ImageDataset, ImageShape, ImageSource, TorchImageDataset
 from detectiv.time_series.windowing import WindowReference
 
 
@@ -45,3 +45,28 @@ def test_image_dataset_rejects_images_with_the_wrong_shape() -> None:
 
     with pytest.raises(ValueError, match="expected"):
         dataset[0]
+
+
+@pytest.mark.parametrize("labels", [np.array([2]), np.array([np.nan]), np.array(["x"])])
+def test_image_dataset_rejects_non_binary_window_labels(labels: np.ndarray) -> None:
+    with pytest.raises(ValueError, match="binary"):
+        ImageDataset(
+            "images",
+            image_shape=ImageShape(channels=3, height=2, width=2),
+            window_references=[WindowReference("series", 0, 4, 4)],
+            source=CountingImageSource(ImageShape(3, 2, 2)),
+            window_labels=labels,
+        )
+
+
+@pytest.mark.parametrize("indices", [[0.5], [True]])
+def test_torch_image_dataset_rejects_non_integer_indices(indices: list[object]) -> None:
+    images = ImageDataset(
+        "images",
+        image_shape=ImageShape(channels=3, height=2, width=2),
+        window_references=[WindowReference("series", 0, 4, 4)],
+        source=CountingImageSource(ImageShape(3, 2, 2)),
+    )
+
+    with pytest.raises(ValueError, match="integer"):
+        TorchImageDataset(images, indices=indices)  # type: ignore[arg-type]

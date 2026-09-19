@@ -2,9 +2,13 @@ import numpy as np
 import pytest
 
 from detectiv.images import ImageDataset, ImageShape, ImageSource
-from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
+from detectiv.models.autoencoders import (
+    Autoencoder,
+    AutoencoderTrainer,
+)
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
+from detectiv.models.events import TrainingEpochEvent
 from detectiv.time_series.windowing import WindowReference
 
 
@@ -41,6 +45,27 @@ def test_trainer_records_best_validation_epoch() -> None:
 
     assert history.best_epoch == 0
     assert history.best_validation_loss == history.validation_losses[0]
+
+
+def test_trainer_reports_an_event_for_each_epoch() -> None:
+    events: list[TrainingEpochEvent] = []
+
+    history = AutoencoderTrainer(epochs=2, batch_size=1, device="cpu").fit(
+        _model(),
+        _images(),
+        [0],
+        validation=_images(),
+        validation_indices=[0],
+        on_epoch_finished=events.append,
+    )
+
+    assert [event.epoch for event in events] == [0, 1]
+    assert [event.training_loss for event in events] == list(history.training_losses)
+    assert [event.validation_loss for event in events] == list(
+        history.validation_losses
+    )
+    assert [event.learning_rates for event in events] == [(1e-3,), (1e-3,)]
+    assert all(event.elapsed_seconds >= 0 for event in events)
 
 
 def _images() -> ImageDataset:

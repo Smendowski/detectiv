@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from detectiv.time_series import TimeSeries
+from detectiv.time_series import TemporalBoundary, TemporalHoldout, TimeSeries
 
 
 def test_univariate_series_uses_a_single_feature() -> None:
@@ -94,3 +94,11 @@ def test_invalid_temporal_split_is_rejected(
 ) -> None:
     with pytest.raises(ValueError):
         TimeSeries(np.arange(6)).split(train_end, validation_end)
+
+
+@pytest.mark.parametrize("value", [2.5, True])
+def test_temporal_boundaries_require_integral_positions(value: object) -> None:
+    with pytest.raises(ValueError, match="integer"):
+        TemporalBoundary(value)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="integer"):
+        TemporalHoldout(value, 0.2)  # type: ignore[arg-type]

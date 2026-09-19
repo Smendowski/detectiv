@@ -12,6 +12,10 @@ class ValidationPartition:
 
 
 class ValidationHoldout(ABC):
+    @property
+    def requires_non_overlapping_windows(self) -> bool:
+        return False
+
     @abstractmethod
     def split(self, indices: NDArray[np.intp]) -> ValidationPartition:
         raise NotImplementedError

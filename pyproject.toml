@@ -41,6 +41,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+experiment = [
+    "matplotlib>=3.10",
+    "mlflow>=3.16.1,<4",
+    "psutil>=7",
+]
 vision = [
     "timm>=1.0.29",
     "torchvision>=0.29.0",
@@ -86,7 +91,7 @@ strict = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-module = ["pyts.*", "pywt", "sklearn.*", "statsmodels.*", "timm.*", "torchvision.*"]
+ module = ["mlflow.*", "pyts.*", "pywt", "sklearn.*", "statsmodels.*", "timm.*", "torchvision.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

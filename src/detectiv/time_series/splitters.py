@@ -1,5 +1,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
+from operator import index
+from typing import SupportsIndex, cast
 
 from detectiv.time_series.dataset import TimeSeriesDataset
 from detectiv.time_series.series import TimeSeries
@@ -12,10 +14,18 @@ class TemporalBoundary:
     validation_end: int | None = None
 
     def __post_init__(self) -> None:
-        if self.train_end <= 0:
+        train_end = _index_value(self.train_end, "train_end")
+        validation_end = (
+            None
+            if self.validation_end is None
+            else _index_value(self.validation_end, "validation_end")
+        )
+        if train_end <= 0:
             raise ValueError("train_end must be positive")
-        if self.validation_end is not None and self.validation_end <= self.train_end:
+        if validation_end is not None and validation_end <= train_end:
             raise ValueError("validation_end must be greater than train_end")
+        object.__setattr__(self, "train_end", train_end)
+        object.__setattr__(self, "validation_end", validation_end)
 
 
 @dataclass(frozen=True)
@@ -24,10 +34,12 @@ class TemporalHoldout:
     validation_fraction: float
 
     def __post_init__(self) -> None:
-        if self.test_start <= 1:
+        test_start = _index_value(self.test_start, "test_start")
+        if test_start <= 1:
             raise ValueError("test_start must leave room for training and validation")
         if not 0 < self.validation_fraction < 1:
             raise ValueError("validation_fraction must be between zero and one")
+        object.__setattr__(self, "test_start", test_start)
 
     def boundary(self) -> TemporalBoundary:
         validation_length = round(self.test_start * self.validation_fraction)
@@ -93,3 +105,12 @@ class TemporalSplitter:
         if isinstance(rule, TemporalHoldout):
             return rule.boundary()
         return rule
+
+
+def _index_value(value: object, name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer")
+    try:
+        return index(cast(SupportsIndex, value))
+    except TypeError as error:
+        raise ValueError(f"{name} must be an integer") from error

@@ -1,0 +1,21 @@
+{
+  "name": "Detectiv",
+  "dockerComposeFile": ["../compose.yaml", "compose.yaml"],
+  "service": "workspace",
+  "workspaceFolder": "/workspaces/detectiv",
+  "remoteUser": "vscode",
+  "shutdownAction": "stopCompose",
+  "features": {
+    "ghcr.io/devcontainers-extra/features/uv:1": {}
+  },
+  "postCreateCommand": "uv sync --locked --all-groups --all-extras",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker"
+      ]
+    }
+  }
+}

@@ -66,8 +66,8 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
     )
 
     assert len(images.train) == 2
-    assert len(images.test) == 4
-    assert images.test.window_references[-1].valid_length == 1
+    assert len(images.test) == 3
+    assert images.test.window_references[-1].valid_length == 2
     first = images.test[0]
     np.testing.assert_array_equal(first, images.test[0])
     np.testing.assert_array_equal(images.test[-1], images.test[len(images.test) - 1])
@@ -77,7 +77,7 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
     assert images.train.window_labels is not None
     assert images.train.window_labels.tolist() == [False, False]
     assert images.test.window_labels is not None
-    assert images.test.window_labels.tolist() == [False, True, True, False]
+    assert images.test.window_labels.tolist() == [False, True, True]
 
 
 def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:

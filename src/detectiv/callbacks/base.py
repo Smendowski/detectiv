@@ -1,10 +1,11 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from detectiv.models.events import TrainingEpochEvent
     from detectiv.scenarios.reconstruction import ReconstructionScenarioResult
 
 
-class ReconstructionCallback:
+class BaseCallback:
     @property
     def name(self) -> str:
         raise NotImplementedError
@@ -12,7 +13,7 @@ class ReconstructionCallback:
     def on_run_started(self) -> None:
         pass
 
-    def on_epoch_finished(self, epoch: int, loss: float) -> None:
+    def on_epoch_finished(self, event: "TrainingEpochEvent") -> None:
         pass
 
     def on_run_finished(self, result: "ReconstructionScenarioResult") -> None:

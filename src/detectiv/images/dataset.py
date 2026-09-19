@@ -5,7 +5,7 @@ from types import MappingProxyType
 
 import numpy as np
 
-from detectiv.time_series.windowing import WindowReference
+from detectiv.time_series.windowing.reference import WindowReference
 
 
 @dataclass(frozen=True)
@@ -59,10 +59,14 @@ class ImageDataset:
         )
         self.window_labels: np.ndarray | None = None
         if window_labels is not None:
-            labels = np.asarray(window_labels, dtype=bool)
+            labels = np.asarray(window_labels)
             if labels.ndim != 1 or len(labels) != len(self):
                 raise ValueError("window_labels must have one value per image")
-            self.window_labels = np.array(labels, copy=True)
+            if not np.issubdtype(labels.dtype, np.bool_) and not np.all(
+                (labels == 0) | (labels == 1)
+            ):
+                raise ValueError("window_labels must contain only binary values")
+            self.window_labels = np.array(labels, dtype=bool, copy=True)
             self.window_labels.setflags(write=False)
 
     def __len__(self) -> int:
@@ -97,7 +101,7 @@ def _validate_series_lengths(
         }
     else:
         lengths = dict(series_lengths)
-        if set(lengths) != series_ids:
+        if not series_ids <= set(lengths):
             raise ValueError("series_lengths must define every referenced series")
     if any(length <= 0 for length in lengths.values()):
         raise ValueError("series lengths must be positive")

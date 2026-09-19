@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from detectiv.callbacks import ReconstructionCallback, TimingCallback
+from detectiv.callbacks import BaseCallback, TimingCallback
 from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
@@ -29,7 +29,7 @@ class ArrayImageSource(ImageSource):
         return self.values[index]
 
 
-class FailingFinishedCallback(ReconstructionCallback):
+class FailingFinishedCallback(BaseCallback):
     @property
     def name(self) -> str:
         return "failing_finished"
@@ -82,6 +82,15 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
         trainer=AutoencoderTrainer(epochs=1, batch_size=1, shuffle_seed=7),
     )
 
+    inspection = scenario.inspect()
+
+    assert inspection.train_images == 2
+    assert inspection.validation_images is None
+    assert inspection.test_images == 2
+    assert inspection.image_shape == (1, 4, 4)
+    assert inspection.scoring_plans == ("mean_squared_window",)
+    assert inspection.callbacks == ("timing",)
+
     result = scenario.run()
 
     assert len(result.training_losses) == 1
@@ -127,6 +136,43 @@ def test_callback_failure_after_completion_is_not_reported_as_run_failure() -> N
     )
 
     with pytest.raises(RuntimeError, match="callback failure"):
+        scenario.run()
+
+
+def test_reconstruction_scenario_rejects_an_empty_test_dataset() -> None:
+    train = _images(
+        values=[np.zeros((1, 4, 4))],
+        references=(WindowReference("series", 0, 4, 4),),
+        labels=np.array([False]),
+        series_length=4,
+    )
+    test = ImageDataset(
+        "empty",
+        image_shape=ImageShape(1, 4, 4),
+        window_references=(),
+        source=ArrayImageSource([]),
+    )
+    scenario = ReconstructionScenario(
+        images=TemporalSplit(train=train, test=test),
+        model=Autoencoder(
+            CNNEncoder(1, hidden_channels=(4,)),
+            CNNDecoder(4, hidden_channels=(), output_channels=1),
+        ),
+        training_mode=SemiSupervisedTraining(),
+        scoring_plans=(
+            ReconstructionScoringPlan(
+                MeanSquaredWindowReconstructionError(),
+                (
+                    PointScoringPlan(
+                        UniformPointAssignment(), MeanPointScoreAggregator()
+                    ),
+                ),
+            ),
+        ),
+        trainer=AutoencoderTrainer(epochs=1, batch_size=1, shuffle_seed=7),
+    )
+
+    with pytest.raises(ValueError, match="test images"):
         scenario.run()
 
 

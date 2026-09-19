@@ -4,13 +4,14 @@ from types import MappingProxyType
 
 import numpy as np
 
-from detectiv.callbacks.base import ReconstructionCallback
+from detectiv.callbacks.base import BaseCallback
 from detectiv.images import ImageDataset
 from detectiv.models.autoencoders import (
     Autoencoder,
     AutoencoderTrainer,
     TrainingHistory,
 )
+from detectiv.models.events import TrainingEpochEvent
 from detectiv.scenarios.training import TrainingMode
 from detectiv.scoring import (
     ReconstructionScoringPlan,
@@ -24,7 +25,7 @@ class ReconstructionScenarioResult:
     window_scores: Mapping[str, WindowEvidenceBatch]
     point_scores: Mapping[str, Mapping[str, Mapping[str, np.ndarray]]]
     training: TrainingHistory
-    callbacks: Mapping[str, ReconstructionCallback] = field(
+    callbacks: Mapping[str, BaseCallback] = field(
         default_factory=lambda: MappingProxyType({})
     )
 
@@ -37,6 +38,29 @@ class ReconstructionScenarioResult:
         return self.training.validation_losses
 
 
+@dataclass(frozen=True)
+class ReconstructionScenarioInspection:
+    train_images: int
+    validation_images: int | None
+    test_images: int
+    image_shape: tuple[int, int, int]
+    scoring_plans: tuple[str, ...]
+    callbacks: tuple[str, ...]
+
+    def summary(self) -> str:
+        validation = (
+            "none" if self.validation_images is None else str(self.validation_images)
+        )
+        return "\n".join(
+            (
+                f"images: train={self.train_images}, validation={validation}, "
+                f"test={self.test_images}, shape={self.image_shape}",
+                f"scoring plans: {', '.join(self.scoring_plans)}",
+                f"callbacks: {', '.join(self.callbacks) or 'none'}",
+            )
+        )
+
+
 class ReconstructionScenario:
     def __init__(
         self,
@@ -45,7 +69,7 @@ class ReconstructionScenario:
         model: Autoencoder,
         training_mode: TrainingMode,
         scoring_plans: Sequence[ReconstructionScoringPlan],
-        callbacks: Sequence[ReconstructionCallback] = (),
+        callbacks: Sequence[BaseCallback] = (),
         trainer: AutoencoderTrainer | None = None,
     ) -> None:
         self.images = images
@@ -64,6 +88,8 @@ class ReconstructionScenario:
     def run(self) -> ReconstructionScenarioResult:
         try:
             self._notify_started()
+            if not len(self.images.test):
+                raise ValueError("test images must contain at least one window")
             partition = self.training_mode.partition(
                 self.images.train,
                 self.images.validation,
@@ -80,6 +106,7 @@ class ReconstructionScenario:
                 plan.name: plan.scorer.score(self.model, self.images.test)
                 for plan in self.scoring_plans
             }
+            self._validate_scores(window_scores)
             result = ReconstructionScenarioResult(
                 window_scores=MappingProxyType(window_scores),
                 point_scores=MappingProxyType(
@@ -98,6 +125,18 @@ class ReconstructionScenario:
             raise
         self._notify_finished(result)
         return result
+
+    def inspect(self) -> ReconstructionScenarioInspection:
+        return ReconstructionScenarioInspection(
+            train_images=len(self.images.train),
+            validation_images=None
+            if self.images.validation is None
+            else len(self.images.validation),
+            test_images=len(self.images.test),
+            image_shape=self.images.train.image_shape.shape,
+            scoring_plans=tuple(plan.name for plan in self.scoring_plans),
+            callbacks=tuple(callback.name for callback in self.callbacks),
+        )
 
     def _propagate(
         self, plan: ReconstructionScoringPlan, scores: WindowEvidenceBatch
@@ -123,13 +162,23 @@ class ReconstructionScenario:
         }
         return MappingProxyType(point_scores)
 
+    def _validate_scores(self, scores: Mapping[str, WindowEvidenceBatch]) -> None:
+        expected_series = set(self.images.test.series_lengths)
+        for plan, values in scores.items():
+            scored_series = {reference.series_id for reference in values.references}
+            if missing := expected_series - scored_series:
+                raise ValueError(
+                    f"scoring plan {plan!r} produced no scores for test series: "
+                    f"{', '.join(sorted(missing))}"
+                )
+
     def _notify_started(self) -> None:
         for callback in self.callbacks:
             callback.on_run_started()
 
-    def _notify_epoch_finished(self, epoch: int, loss: float) -> None:
+    def _notify_epoch_finished(self, event: TrainingEpochEvent) -> None:
         for callback in self.callbacks:
-            callback.on_epoch_finished(epoch, loss)
+            callback.on_epoch_finished(event)
 
     def _notify_finished(self, result: ReconstructionScenarioResult) -> None:
         for callback in self.callbacks:

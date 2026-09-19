@@ -45,6 +45,8 @@ class PointScoreAggregator(ABC):
             raise ValueError("series_length must be positive")
         if not contributions.references:
             raise ValueError("at least one point contribution is required")
+        if len({reference.series_id for reference in contributions.references}) != 1:
+            raise ValueError("point contributions must belong to one series")
         point_scores, coverage = self._aggregate(contributions, series_length)
         return self._resolve_uncovered(point_scores, coverage)
 

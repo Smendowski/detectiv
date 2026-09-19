@@ -29,5 +29,6 @@ nav:
   - Overview: index.md
   - Installation: installation.md
   - Design: design.md
+  - First Experiment: first-experiment.md
   - API: api.md
   - Development: development.md

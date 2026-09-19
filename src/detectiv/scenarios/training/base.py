@@ -41,9 +41,29 @@ class TrainingMode(ABC):
             )
         if self.validation_holdout is None:
             return TrainingPartition(training_indices)
+        if self.validation_holdout.requires_non_overlapping_windows and _overlap(
+            train, training_indices
+        ):
+            raise ValueError(
+                "random validation holdout cannot split overlapping windows; use "
+                "temporally separated validation images"
+            )
         holdout = self.validation_holdout.split(training_indices)
         return TrainingPartition(
             holdout.training_indices,
             train,
             holdout.validation_indices,
         )
+
+
+def _overlap(images: ImageDataset, indices: NDArray[np.intp]) -> bool:
+    references = sorted(
+        (images.window_references[int(index)] for index in indices),
+        key=lambda reference: (reference.series_id, reference.start),
+    )
+    stops: dict[str, int] = {}
+    for reference in references:
+        if reference.start < stops.get(reference.series_id, 0):
+            return True
+        stops[reference.series_id] = reference.stop
+    return False

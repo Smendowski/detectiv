@@ -18,7 +18,12 @@ class TorchImageDataset(TorchDataset[Tensor]):
         self.images = images
         self._indices = np.arange(len(images), dtype=np.intp)
         if indices is not None:
-            self._indices = np.array(indices, dtype=np.intp, copy=True)
+            values = np.asarray(indices)
+            if values.ndim != 1 or (
+                len(values) and not np.issubdtype(values.dtype, np.integer)
+            ):
+                raise ValueError("indices must be a one-dimensional integer sequence")
+            self._indices = np.array(values, dtype=np.intp, copy=True)
         if self._indices.ndim != 1 or (
             len(self._indices)
             and ((self._indices < 0).any() or (self._indices >= len(images)).any())

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Protocol
 
 import numpy as np
 
-from detectiv.callbacks.base import ReconstructionCallback
+from detectiv.callbacks.base import BaseCallback
 
 if TYPE_CHECKING:
     from detectiv.scenarios.reconstruction import ReconstructionScenarioResult
@@ -16,7 +16,7 @@ class _PointScoreEvaluator(Protocol):
     ) -> Mapping[str, float]: ...
 
 
-class EvaluationCallback(ReconstructionCallback):
+class EvaluationCallback(BaseCallback):
     def __init__(
         self,
         evaluator: _PointScoreEvaluator,
@@ -64,6 +64,26 @@ class EvaluationCallback(ReconstructionCallback):
                 propagations[propagation] = MappingProxyType(series_metrics)
             plans[plan] = MappingProxyType(propagations)
         self.metrics = MappingProxyType(plans)
+
+    def tracking_metrics(self) -> Mapping[str, Mapping[str, Mapping[str, float]]]:
+        if self.metrics is None:
+            raise RuntimeError("evaluation metrics are not available")
+        plans: dict[str, Mapping[str, Mapping[str, float]]] = {}
+        for plan, propagations in self.metrics.items():
+            aggregated: dict[str, Mapping[str, float]] = {}
+            for propagation, series_metrics in propagations.items():
+                values: dict[str, list[float]] = {}
+                for metrics in series_metrics.values():
+                    for name, value in metrics.items():
+                        values.setdefault(name, []).append(value)
+                aggregated[propagation] = MappingProxyType(
+                    {
+                        name: float(np.mean(metric_values))
+                        for name, metric_values in values.items()
+                    }
+                )
+            plans[plan] = MappingProxyType(aggregated)
+        return MappingProxyType(plans)
 
 
 def _validated_labels(labels: Mapping[str, np.ndarray]) -> Mapping[str, np.ndarray]:

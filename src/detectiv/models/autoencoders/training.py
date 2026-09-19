@@ -1,6 +1,7 @@
 from collections.abc import Callable, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
+from time import perf_counter
 from typing import cast
 
 import numpy as np
@@ -17,6 +18,7 @@ from detectiv.models.autoencoders.transfer_learning import (
     OptimizerFactory,
     TransferLearningStrategy,
 )
+from detectiv.models.events import TrainingEpochEvent
 from detectiv.models.runtime import resolve_device
 
 Scheduler = LRScheduler | ReduceLROnPlateau
@@ -66,7 +68,7 @@ class AutoencoderTrainer:
         *,
         validation: ImageDataset | None = None,
         validation_indices: Sequence[int] | NDArray[np.intp] | None = None,
-        on_epoch_finished: Callable[[int, float], None] | None = None,
+        on_epoch_finished: Callable[[TrainingEpochEvent], None] | None = None,
     ) -> "TrainingHistory":
         dataset = TorchImageDataset(images, indices)
         if not len(dataset):
@@ -106,6 +108,7 @@ class AutoencoderTrainer:
         epochs_without_improvement = 0
         model.train()
         for epoch in range(self.epochs):
+            started_at = perf_counter()
             updated_optimizer = self.transfer_strategy.on_epoch_started(
                 epoch,
                 model,
@@ -117,6 +120,9 @@ class AutoencoderTrainer:
             if updated_optimizer is not optimizer:
                 optimizer = updated_optimizer
                 scheduler = self._scheduler(optimizer, validation_dataset)
+            learning_rates = tuple(
+                float(group["lr"]) for group in optimizer.param_groups
+            )
 
             loss_sum = 0.0
             n_images = 0
@@ -132,16 +138,34 @@ class AutoencoderTrainer:
 
             epoch_loss = loss_sum / n_images
             losses.append(epoch_loss)
-            if on_epoch_finished is not None:
-                on_epoch_finished(epoch, epoch_loss)
 
             if validation_dataset is None:
                 self._step_scheduler(scheduler)
+                if on_epoch_finished is not None:
+                    on_epoch_finished(
+                        TrainingEpochEvent(
+                            epoch,
+                            epoch_loss,
+                            None,
+                            learning_rates,
+                            perf_counter() - started_at,
+                        )
+                    )
                 continue
 
             validation_loss = self._loss(model, validation_dataset, device)
             validation_losses.append(validation_loss)
             self._step_scheduler(scheduler, validation_loss)
+            if on_epoch_finished is not None:
+                on_epoch_finished(
+                    TrainingEpochEvent(
+                        epoch,
+                        epoch_loss,
+                        validation_loss,
+                        learning_rates,
+                        perf_counter() - started_at,
+                    )
+                )
 
             if validation_loss < best_loss - self.min_delta:
                 best_loss = validation_loss

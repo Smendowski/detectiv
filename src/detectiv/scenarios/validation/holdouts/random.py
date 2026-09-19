@@ -12,6 +12,10 @@ class RandomHoldout(ValidationHoldout):
         self.fraction = fraction
         self.seed = seed
 
+    @property
+    def requires_non_overlapping_windows(self) -> bool:
+        return True
+
     def split(self, indices: NDArray[np.intp]) -> ValidationPartition:
         selected = np.asarray(indices, dtype=np.intp)
         if selected.ndim != 1 or len(selected) < 2:

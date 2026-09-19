@@ -7,8 +7,11 @@ from detectiv.time_series.windowing import WindowReference
 
 
 class ArrayImageSource(ImageSource):
+    def __init__(self, length: int = 5) -> None:
+        self.length = length
+
     def __len__(self) -> int:
-        return 5
+        return self.length
 
     def __getitem__(self, index: int) -> np.ndarray:
         return np.zeros((1, 2, 2), dtype=np.float32)
@@ -33,7 +36,7 @@ def test_semi_supervised_training_applies_its_validation_holdout() -> None:
         "images",
         image_shape=ImageShape(channels=1, height=2, width=2),
         window_references=[
-            WindowReference("series", index, index + 2, 2) for index in range(5)
+            WindowReference("series", index * 2, index * 2 + 2, 2) for index in range(5)
         ],
         source=ArrayImageSource(),
         window_labels=np.array([False, True, False, False, False]),
@@ -52,3 +55,44 @@ def test_semi_supervised_training_applies_its_validation_holdout() -> None:
         3,
         4,
     }
+
+
+def test_random_holdout_rejects_overlapping_windows() -> None:
+    images = ImageDataset(
+        "images",
+        image_shape=ImageShape(channels=1, height=2, width=2),
+        window_references=[
+            WindowReference("series", index, index + 2, 2) for index in range(5)
+        ],
+        source=ArrayImageSource(),
+        window_labels=np.array([False, True, False, False, False]),
+    )
+
+    with np.testing.assert_raises_regex(ValueError, "overlapping"):
+        SemiSupervisedTraining(
+            validation_holdout=RandomHoldout(fraction=0.25, seed=42)
+        ).partition(images)
+
+
+def test_semi_supervised_training_uses_separate_temporal_validation_images() -> None:
+    train = ImageDataset(
+        "train",
+        image_shape=ImageShape(channels=1, height=2, width=2),
+        window_references=(WindowReference("series", 0, 2, 2),),
+        source=ArrayImageSource(1),
+        window_labels=np.array([False]),
+    )
+    validation = ImageDataset(
+        "validation",
+        image_shape=ImageShape(channels=1, height=2, width=2),
+        window_references=(WindowReference("series", 0, 2, 2),),
+        source=ArrayImageSource(1),
+        window_labels=np.array([False]),
+    )
+
+    partition = SemiSupervisedTraining().partition(train, validation)
+
+    assert partition.training_indices.tolist() == [0]
+    assert partition.validation_images is validation
+    assert partition.validation_indices is not None
+    assert partition.validation_indices.tolist() == [0]

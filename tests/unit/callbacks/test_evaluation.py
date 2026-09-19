@@ -35,6 +35,7 @@ def test_metrics_callback_evaluates_each_original_label_series() -> None:
     callback.on_run_finished(result)
 
     assert callback.metrics == {"window": {"mean": {"series": {"mean": 2.0}}}}
+    assert callback.tracking_metrics() == {"window": {"mean": {"mean": 2.0}}}
 
 
 def test_metrics_callback_rejects_unaligned_point_scores() -> None:
