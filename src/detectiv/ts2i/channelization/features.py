@@ -5,7 +5,7 @@ import numpy as np
 from detectiv.ts2i.channelization.base import Channelization
 
 
-class FeatureChannelization(Channelization):
+class IndexedFeatureChannelization(Channelization):
     def __init__(self, feature_indices: Sequence[int]) -> None:
         indices = tuple(feature_indices)
         if not indices or any(index < 0 for index in indices):

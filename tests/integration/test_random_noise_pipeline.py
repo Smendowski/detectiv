@@ -22,7 +22,7 @@ from detectiv.time_series.windowing import (
 )
 from detectiv.ts2i import ImagePreparation
 from detectiv.ts2i.channelization import IdentityChannelization
-from detectiv.ts2i.projection import ConfiguredProjectionStrategy, ProjectionScheme
+from detectiv.ts2i.projection import FixedProjectionStrategy, ProjectionScheme
 from detectiv.ts2i.transformations import RandomNoise
 
 
@@ -48,7 +48,7 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
             )
         },
     )
-    projection = ConfiguredProjectionStrategy(
+    projection = FixedProjectionStrategy(
         ProjectionScheme(IdentityChannelization())
         .channels(RandomNoise())
         .replicate(n_channels=3)
@@ -96,7 +96,7 @@ def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:
         .split(TemporalSplitter({"series": TemporalBoundary(4)}))
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(
-            ConfiguredProjectionStrategy(
+            FixedProjectionStrategy(
                 ProjectionScheme(IdentityChannelization())
                 .channels(RandomNoise())
                 .replicate(n_channels=3)
@@ -148,7 +148,7 @@ def test_image_artifacts_round_trip_lazily(tmp_path: Path) -> None:
         .split(TemporalSplitter({"series": TemporalBoundary(4)}))
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(
-            ConfiguredProjectionStrategy(
+            FixedProjectionStrategy(
                 ProjectionScheme(IdentityChannelization())
                 .channels(RandomNoise())
                 .replicate(n_channels=3)

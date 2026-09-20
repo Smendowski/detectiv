@@ -5,7 +5,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from detectiv.images import ImageDataset
-from detectiv.scenarios.validation import ValidationHoldout
+from detectiv.protocols.validation import ValidationHoldout
 
 
 @dataclass(frozen=True)
@@ -29,11 +29,11 @@ class TrainingMode(ABC):
         validation: ImageDataset | None = None,
     ) -> TrainingPartition:
         training_indices = self.select(train)
+        if validation is not None and self.validation_holdout is not None:
+            raise ValueError(
+                "validation holdout cannot be combined with temporal validation"
+            )
         if validation is not None:
-            if self.validation_holdout is not None:
-                raise ValueError(
-                    "validation holdout cannot be combined with temporal validation"
-                )
             return TrainingPartition(
                 training_indices,
                 validation,

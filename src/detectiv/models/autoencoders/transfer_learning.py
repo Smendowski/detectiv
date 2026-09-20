@@ -85,14 +85,7 @@ class ProgressiveEncoderUnfreezeStrategy(FrozenEncoderStrategy):
         learning_rate: float,
         weight_decay: float,
     ) -> optim.Optimizer:
-        model.encoder.freeze()
-        return _differential_optimizer(
-            optimizer,
-            model,
-            learning_rate,
-            weight_decay,
-            self.encoder_learning_rate_scale,
-        )
+        return super().initialize(model, optimizer, learning_rate, weight_decay)
 
     def on_epoch_started(
         self,
@@ -115,7 +108,13 @@ class ProgressiveEncoderUnfreezeStrategy(FrozenEncoderStrategy):
 
         model.encoder.unfreeze()
         model.encoder.train()
-        return optimizer
+        return _differential_optimizer(
+            optimizer_type,
+            model,
+            learning_rate,
+            weight_decay,
+            self.encoder_learning_rate_scale,
+        )
 
 
 class DifferentialLearningRateStrategy(TransferLearningStrategy):

@@ -8,7 +8,7 @@ from detectiv.models.autoencoders import (
 )
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
-from detectiv.models.events import TrainingEpochEvent
+from detectiv.runs import TrainingEpochEvent
 from detectiv.time_series.windowing import WindowReference
 
 

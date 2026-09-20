@@ -5,7 +5,11 @@ from detectiv.ts2i.channelization import (
     FeatureSelectionScope,
     HighestVariabilityFeatureChannelization,
 )
-from detectiv.ts2i.projection import ConfiguredProjectionStrategy, ProjectionScheme
+from detectiv.ts2i.projection import (
+    FixedProjectionStrategy,
+    ProjectionScheme,
+    ProjectionStrategy,
+)
 from detectiv.ts2i.transformations import Spiral
 
 
@@ -28,11 +32,13 @@ def test_fitted_projection_scheme_isolated_from_later_fits() -> None:
             )
         },
     )
-    strategy = ConfiguredProjectionStrategy(
+    strategy = FixedProjectionStrategy(
         ProjectionScheme(
             HighestVariabilityFeatureChannelization(1, FeatureSelectionScope.TRAINING)
         ).channels(Spiral())
     )
+
+    assert isinstance(strategy, ProjectionStrategy)
 
     first = strategy.fit(first_train)
     image_before = first.render(first_train["series"].values, (4, 4))

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -17,7 +19,7 @@ class WindowEvidenceBatch(ABC):
         ]
 
     @abstractmethod
-    def for_series(self, series_id: str) -> "WindowEvidenceBatch":
+    def for_series(self, series_id: str) -> WindowEvidenceBatch:
         raise NotImplementedError
 
 
@@ -38,7 +40,7 @@ class WindowScoreBatch(WindowEvidenceBatch):
         values.setflags(write=False)
         object.__setattr__(self, "values", values)
 
-    def for_series(self, series_id: str) -> "WindowScoreBatch":
+    def for_series(self, series_id: str) -> WindowScoreBatch:
         indices = self.indices_for_series(series_id)
         return WindowScoreBatch(
             self.values[indices],
@@ -66,7 +68,7 @@ class WindowPointScoreBatch(WindowEvidenceBatch):
             point_scores.append(values)
         object.__setattr__(self, "values", tuple(point_scores))
 
-    def for_series(self, series_id: str) -> "WindowPointScoreBatch":
+    def for_series(self, series_id: str) -> WindowPointScoreBatch:
         indices = self.indices_for_series(series_id)
         return WindowPointScoreBatch(
             tuple(self.values[index] for index in indices),

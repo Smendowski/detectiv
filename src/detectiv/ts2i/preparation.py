@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from types import MappingProxyType
@@ -8,7 +10,12 @@ from detectiv.images import ImageDataset, ImageShape
 from detectiv.time_series import TemporalSplit, TemporalSplitter, TimeSeriesDataset
 from detectiv.time_series.preprocessing import TimeSeriesPreprocessor
 from detectiv.time_series.windowing import SplitPart, SplitWindowing, WindowSpec
-from detectiv.ts2i.generated import GeneratedImageSource
+from detectiv.ts2i.image_source import ProjectedWindowImageSource
+from detectiv.ts2i.materialization import (
+    MaterializationReport,
+    MaterializationSettings,
+    materialize,
+)
 from detectiv.ts2i.projection import ProjectionScheme, ProjectionStrategy
 
 
@@ -20,7 +27,7 @@ class ImagePreparation:
     _projection: ProjectionStrategy | None = None
     _preprocessor: TimeSeriesPreprocessor | None = None
 
-    def split(self, splitter: TemporalSplitter) -> "ImagePreparation":
+    def split(self, splitter: TemporalSplitter) -> ImagePreparation:
         return replace(self, _splitter=splitter)
 
     def window(
@@ -29,16 +36,16 @@ class ImagePreparation:
         train: WindowSpec,
         test: WindowSpec,
         validation: WindowSpec | None = None,
-    ) -> "ImagePreparation":
+    ) -> ImagePreparation:
         return replace(
             self,
             _windowing=SplitWindowing(train=train, validation=validation, test=test),
         )
 
-    def project(self, projection: ProjectionStrategy) -> "ImagePreparation":
+    def project(self, projection: ProjectionStrategy) -> ImagePreparation:
         return replace(self, _projection=projection)
 
-    def preprocess(self, preprocessor: TimeSeriesPreprocessor) -> "ImagePreparation":
+    def preprocess(self, preprocessor: TimeSeriesPreprocessor) -> ImagePreparation:
         return replace(self, _preprocessor=preprocessor)
 
     def build(
@@ -83,7 +90,7 @@ class ImagePreparation:
 
     def inspect(
         self, size: tuple[int, int], *, seed: int = 0
-    ) -> "ImagePreparationInspection":
+    ) -> ImagePreparationInspection:
         images = self.build(size, seed=seed)
         return ImagePreparationInspection(
             train=_inspect_images(images.train),
@@ -92,6 +99,12 @@ class ImagePreparation:
             else _inspect_images(images.validation),
             test=_inspect_images(images.test),
         )
+
+    def materialize(
+        self, size: tuple[int, int], settings: MaterializationSettings, *, seed: int = 0
+    ) -> tuple[TemporalSplit[ImageDataset], MaterializationReport]:
+        """Render this preparation once into an atomically published image artifact."""
+        return materialize(self.build(size, seed=seed), settings)
 
     @staticmethod
     def _preprocess(
@@ -125,7 +138,7 @@ class ImagePreparation:
         seed: int,
         split: SplitPart,
     ) -> ImageDataset:
-        source = GeneratedImageSource(
+        source = ProjectedWindowImageSource(
             dataset,
             window=window,
             projection=projection,

@@ -1,8 +1,7 @@
 import numpy as np
 
 from detectiv.images import ImageDataset, ImageShape, ImageSource
-from detectiv.scenarios.training import SemiSupervisedTraining
-from detectiv.scenarios.validation import RandomHoldout
+from detectiv.protocols import RandomHoldout, SemiSupervisedTraining
 from detectiv.time_series.windowing import WindowReference
 
 

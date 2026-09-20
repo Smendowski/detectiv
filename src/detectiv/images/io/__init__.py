@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -14,7 +16,7 @@ class ImageArtifactLabel(StrEnum):
     UNLABELED = "unlabeled"
 
     @classmethod
-    def from_window_label(cls, label: bool | None) -> "ImageArtifactLabel":
+    def from_window_label(cls, label: bool | None) -> ImageArtifactLabel:
         if label is None:
             return cls.UNLABELED
         return cls.ANOMALOUS if label else cls.NORMAL

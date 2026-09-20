@@ -39,8 +39,7 @@ nav:
   - Overview: index.md
   - Installation: installation.md
   - Design: design.md
-  - First Experiment: first-experiment.md
-  - Experiment Surfaces: experiment-surfaces.md
+  - Callback Lifecycle: callback-lifecycle.md
   - Time Series: time-series.md
   - Benchmarks:
       - Overview: benchmarks/index.md
@@ -65,6 +64,13 @@ nav:
               - Length Strategies: api/time-series/windowing/lengths.md
               - Window Reference: api/time-series/windowing/reference.md
               - Split Windowing: api/time-series/windowing/split.md
-      - Callbacks: api/callbacks.md
+      - Callbacks:
+          - Base: api/callbacks/base.md
+          - Artifacts: api/callbacks/artifacts.md
+          - Timing: api/callbacks/timing.md
+          - MLflow: api/callbacks/mlflow.md
+      - Scenarios:
+          - Reconstruction Evaluation: api/scenarios/reconstruction-evaluation.md
+          - Reconstruction Tracking: api/scenarios/reconstruction-tracking.md
       - Runs: api/runs.md
   - Development: development.md

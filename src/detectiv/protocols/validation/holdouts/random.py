@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from numpy.typing import NDArray
 
-from detectiv.scenarios.validation.base import ValidationHoldout, ValidationPartition
+from detectiv.protocols.validation.base import ValidationHoldout, ValidationPartition
 
 
 class RandomHoldout(ValidationHoldout):

@@ -89,6 +89,29 @@ def test_reader_rejects_png_artifacts_without_rgb_shape(tmp_path: Path) -> None:
         ImageFolderReader(tmp_path).read()
 
 
+def test_reader_rejects_manifest_entries_for_missing_images(tmp_path: Path) -> None:
+    (tmp_path / "artifact.json").write_text(
+        json.dumps(
+            {
+                "format": "npy",
+                "image_shape": {"channels": 3, "height": 2, "width": 2},
+                "dataset_ids": {"train": "images", "test": "images"},
+                "series_lengths": {"train": {"series": 2}, "test": {}},
+                "dataset_metadata": {"train": {}, "test": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "manifest.csv").write_text(
+        "split,label,path,series_id,start,stop,valid_length\n"
+        "train,unlabeled,train/unlabeled/000000.npy,series,0,2,2\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="image is missing"):
+        ImageFolderReader(tmp_path).read()
+
+
 def _split(
     image: np.ndarray, *, metadata: dict[str, object] | None = None
 ) -> TemporalSplit[ImageDataset]:

@@ -147,12 +147,11 @@ class ImageFolderReader:
         dataset_id = dataset_ids.get(split)
         if not isinstance(dataset_id, str):
             raise ValueError(f"artifact metadata has no dataset ID for {split}")
-        paths: list[Path] = []
+        paths = [self._resolve(row["path"]) for row in rows]
         references: list[WindowReference] = []
         labels: list[ImageArtifactLabel] = []
         try:
             for row in rows:
-                paths.append(self._resolve(row["path"]))
                 references.append(
                     WindowReference(
                         row["series_id"],
@@ -214,4 +213,6 @@ class ImageFolderReader:
         path = (root / relative_path).resolve()
         if not path.is_relative_to(root):
             raise ValueError(f"artifact path escapes its root: {relative_path}")
+        if not path.is_file():
+            raise ValueError(f"artifact image is missing: {relative_path}")
         return path

@@ -6,17 +6,19 @@ repos:
         entry: uv run ruff check
         language: system
         types_or: [python, pyi]
+
       - id: ruff-format
         name: ruff format
         entry: uv run ruff format --check
         language: system
         types_or: [python, pyi]
+
       - id: mypy
         name: mypy
-        entry: uv run mypy src tests
+        entry: uv run mypy
         language: system
-        pass_filenames: false
         types_or: [python, pyi]
+
       - id: uv-lock
         name: uv lock
         entry: uv lock --check

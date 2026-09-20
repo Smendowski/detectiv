@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Callable, Sequence
 from copy import deepcopy
 from dataclasses import dataclass, field
@@ -18,8 +20,9 @@ from detectiv.models.autoencoders.transfer_learning import (
     OptimizerFactory,
     TransferLearningStrategy,
 )
-from detectiv.models.events import TrainingEpochEvent
 from detectiv.models.runtime import resolve_device
+from detectiv.runs import TrainingEpochEvent
+from detectiv.ts2i import DataLoaderSettings
 
 Scheduler = LRScheduler | ReduceLROnPlateau
 SchedulerFactory = Callable[[optim.Optimizer], Scheduler]
@@ -44,6 +47,7 @@ class AutoencoderTrainer:
     early_stopping_patience: int | None = None
     min_delta: float = 0.0
     restore_best_validation: bool = True
+    data_loader: DataLoaderSettings = field(default_factory=DataLoaderSettings)
 
     def __post_init__(self) -> None:
         if self.epochs <= 0 or self.batch_size <= 0:
@@ -69,7 +73,7 @@ class AutoencoderTrainer:
         validation: ImageDataset | None = None,
         validation_indices: Sequence[int] | NDArray[np.intp] | None = None,
         on_epoch_finished: Callable[[TrainingEpochEvent], None] | None = None,
-    ) -> "TrainingHistory":
+    ) -> TrainingHistory:
         dataset = TorchImageDataset(images, indices)
         if not len(dataset):
             raise ValueError("at least one training image is required")
@@ -83,14 +87,17 @@ class AutoencoderTrainer:
         generator = None
         if self.shuffle_seed is not None:
             generator = torch.Generator().manual_seed(self.shuffle_seed)
+        device = resolve_device(self.device)
         loader = DataLoader(
             dataset,
             batch_size=self.batch_size,
             shuffle=True,
             generator=generator,
+            num_workers=self.data_loader.workers,
+            prefetch_factor=self.data_loader.prefetch_factor,
+            persistent_workers=self.data_loader.persistent_workers,
+            pin_memory=self.data_loader.pin_memory and device.type == "cuda",
         )
-
-        device = resolve_device(self.device)
         model.to(device)
         optimizer = self.transfer_strategy.initialize(
             model,
@@ -102,6 +109,9 @@ class AutoencoderTrainer:
 
         losses: list[float] = []
         validation_losses: list[float] = []
+        data_wait_seconds = 0.0
+        transfer_seconds = 0.0
+        validation_seconds = 0.0
         best_loss = float("inf")
         best_epoch: int | None = None
         best_state: dict[str, Tensor] | None = None
@@ -126,8 +136,20 @@ class AutoencoderTrainer:
 
             loss_sum = 0.0
             n_images = 0
-            for batch in loader:
-                batch = cast(Tensor, batch).to(device)
+            batches = iter(loader)
+            while True:
+                waiting_started = perf_counter()
+                try:
+                    batch = next(batches)
+                except StopIteration:
+                    break
+                data_wait_seconds += perf_counter() - waiting_started
+                transfer_started = perf_counter()
+                batch = cast(Tensor, batch).to(
+                    device,
+                    non_blocking=self.data_loader.pin_memory and device.type == "cuda",
+                )
+                transfer_seconds += perf_counter() - transfer_started
                 optimizer.zero_grad(set_to_none=True)
                 reconstruction = model(batch)
                 reconstruction_loss = self.loss(reconstruction, batch)
@@ -153,7 +175,15 @@ class AutoencoderTrainer:
                     )
                 continue
 
-            validation_loss = self._loss(model, validation_dataset, device)
+            (
+                validation_loss,
+                validation_wait,
+                validation_transfer,
+                validation_elapsed,
+            ) = self._loss(model, validation_dataset, device)
+            data_wait_seconds += validation_wait
+            transfer_seconds += validation_transfer
+            validation_seconds += validation_elapsed
             validation_losses.append(validation_loss)
             self._step_scheduler(scheduler, validation_loss)
             if on_epoch_finished is not None:
@@ -188,6 +218,10 @@ class AutoencoderTrainer:
             validation_losses=tuple(validation_losses),
             best_epoch=best_epoch,
             best_validation_loss=None if best_epoch is None else best_loss,
+            device=str(device),
+            data_wait_seconds=data_wait_seconds,
+            transfer_seconds=transfer_seconds,
+            validation_seconds=validation_seconds,
         )
 
     def _scheduler(
@@ -235,18 +269,47 @@ class AutoencoderTrainer:
         model: Autoencoder,
         images: TorchImageDataset,
         device: torch.device,
-    ) -> float:
+    ) -> tuple[float, float, float, float]:
         was_training = model.training
         model.eval()
         loss_sum = 0.0
+        data_wait_seconds = 0.0
+        transfer_seconds = 0.0
+        started = perf_counter()
 
         with torch.no_grad():
-            for batch in DataLoader(images, batch_size=self.batch_size):
-                batch = cast(Tensor, batch).to(device)
+            batches = iter(
+                DataLoader(
+                    images,
+                    batch_size=self.batch_size,
+                    num_workers=self.data_loader.workers,
+                    prefetch_factor=self.data_loader.prefetch_factor,
+                    persistent_workers=self.data_loader.persistent_workers,
+                    pin_memory=self.data_loader.pin_memory and device.type == "cuda",
+                )
+            )
+            while True:
+                waiting_started = perf_counter()
+                try:
+                    batch = next(batches)
+                except StopIteration:
+                    break
+                data_wait_seconds += perf_counter() - waiting_started
+                transfer_started = perf_counter()
+                batch = cast(Tensor, batch).to(
+                    device,
+                    non_blocking=self.data_loader.pin_memory and device.type == "cuda",
+                )
+                transfer_seconds += perf_counter() - transfer_started
                 loss_sum += float(self.loss(model(batch), batch)) * len(batch)
 
         model.train(was_training)
-        return loss_sum / len(images)
+        return (
+            loss_sum / len(images),
+            data_wait_seconds,
+            transfer_seconds,
+            perf_counter() - started,
+        )
 
 
 @dataclass(frozen=True)
@@ -255,3 +318,7 @@ class TrainingHistory:
     validation_losses: tuple[float, ...] = ()
     best_epoch: int | None = None
     best_validation_loss: float | None = None
+    device: str | None = None
+    data_wait_seconds: float = 0.0
+    transfer_seconds: float = 0.0
+    validation_seconds: float = 0.0

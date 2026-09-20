@@ -35,42 +35,25 @@ uv sync --extra experiment
 export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
 ```
 
-Keep MLflow at the scenario boundary. `MlflowExperiment` provides an explicit
-run lifecycle and callback for per-epoch loss, system metrics, configuration,
-parameters, final metrics, and run artifacts:
+Keep MLflow at the scenario boundary. `MlflowCallback` owns the run lifecycle
+and publishes generic configuration, parameters, final metrics, and existing
+artifact directories. Add `ReconstructionMlflowCallback` when reconstruction
+training metrics, curves, reports, or model publication are useful:
 
-```python
-from pathlib import Path
+See the [MLflow callback API](api/callbacks/mlflow.md) and
+[reconstruction tracking API](api/scenarios/reconstruction-tracking.md) for the
+public configuration contracts. Usage samples will live under `samples/` once
+they are prepared.
 
-from detectiv.callbacks import MlflowExperiment, MlflowModelLogging
-from detectiv.scenarios import RunArtifactWriter
+## Reserved Namespaces
 
-tracker = MlflowExperiment(
-    "tsb-ad/nab",
-    run_name="001_NAB_id_1_Facility / RandomNoise / CNN / seed=42",
-    parameters={"trainer": {"epochs": 100, "learning_rate": 1e-3}},
-    configuration={"protocol": "temporal-validation-v1"},
-    dataset={
-        "name": "NAB",
-        "series": ["001_NAB_id_1_Facility"],
-        "source_sha256": "raw-data-content-hash",
-    },
-    tags={
-        "dataset.name": "NAB",
-        "model.family": "CNN",
-        "series": "001_NAB_id_1_Facility",
-    },
-    description="Temporal-validation reconstruction baseline.",
-    model=MlflowModelLogging(name="reconstruction_model"),
-)
-with tracker:
-    result = scenario.run()
-    artifacts = RunArtifactWriter(Path("artifacts/MSL5")).write(result)
-    tracker.log_artifacts(artifacts.manifest.parent)
-    tracker.log_metrics(final_metrics)
-```
+`detectiv.datasets` is intentionally reserved for a future Hugging Face dataset
+integration. `detectiv.xai` is reserved for future explainability APIs. Both
+packages currently contain only a `.gitkeep` marker: they define no public API,
+add no dependency, and should not be imported by production code yet.
 
-Pass `nested=True` when opening per-series runs beneath a study run.
+Pass `nested=True` when a scenario should be nested beneath an already-active
+MLflow run.
 Include a raw source checksum in every dataset manifest. MLflow records a
 canonical manifest hash as `detectiv.dataset.manifest_sha256` for filtering and
 reproducibility.

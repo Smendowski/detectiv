@@ -4,27 +4,28 @@ from pathlib import Path
 from types import ModuleType
 from typing import Literal
 
-import numpy as np
 import pytest
 
-from detectiv.callbacks import MlflowCallback, MlflowExperiment
-from detectiv.models import TrainingEpochEvent
-from detectiv.models.autoencoders import TrainingHistory
-from detectiv.scenarios import ReconstructionScenarioResult
+from detectiv.callbacks import BaseCallback, MlflowCallback
+from detectiv.scenarios import BaseScenario
 
 
 class FakeRunContext:
     def __init__(self) -> None:
-        self.entered = False
         self.exit_arguments: tuple[object, ...] | None = None
 
     def __enter__(self) -> "FakeRunContext":
-        self.entered = True
         return self
 
     def __exit__(self, *args: object) -> Literal[False]:
         self.exit_arguments = args
         return False
+
+    @property
+    def info(self) -> object:
+        return type(
+            "Info", (), {"run_id": "native-run", "artifact_uri": "mlruns:/native-run"}
+        )()
 
 
 class FakeMlflow(ModuleType):
@@ -38,7 +39,6 @@ class FakeMlflow(ModuleType):
         self.metrics: list[tuple[str, float, int | None]] = []
         self.tags: dict[str, str] = {}
         self.artifacts: list[tuple[str, str]] = []
-        self.figures: list[str] = []
         self.run = FakeRunContext()
 
     def set_tracking_uri(self, uri: str) -> None:
@@ -52,6 +52,9 @@ class FakeMlflow(ModuleType):
         tags = kwargs.get("tags")
         if isinstance(tags, Mapping):
             self.tags.update({str(name): str(value) for name, value in tags.items()})
+        return self.run
+
+    def active_run(self) -> FakeRunContext:
         return self.run
 
     def log_params(self, parameters: Mapping[str, object]) -> None:
@@ -72,9 +75,6 @@ class FakeMlflow(ModuleType):
     def log_artifacts(self, directory: str, artifact_path: str) -> None:
         self.artifacts.append((directory, artifact_path))
 
-    def log_figure(self, figure: object, artifact_file: str) -> None:
-        self.figures.append(artifact_file)
-
 
 @pytest.fixture
 def mlflow(monkeypatch: pytest.MonkeyPatch) -> FakeMlflow:
@@ -83,123 +83,84 @@ def mlflow(monkeypatch: pytest.MonkeyPatch) -> FakeMlflow:
     return fake
 
 
-def test_experiment_logs_parameters_configuration_and_artifacts(
+class TextScenario(BaseScenario[str]):
+    scenario_type = "text"
+
+    def __init__(
+        self,
+        *,
+        callbacks: tuple[BaseCallback[str], ...],
+        error: Exception | None = None,
+    ) -> None:
+        super().__init__(callbacks=callbacks)
+        self.error = error
+
+    def _run(self) -> str:
+        if self.error is not None:
+            raise self.error
+        return "complete"
+
+
+def test_generic_tracker_supports_a_non_reconstruction_scenario(
     mlflow: FakeMlflow, tmp_path: Path
 ) -> None:
-    artifact = tmp_path / "result.txt"
-    artifact.write_text("result")
-
-    with MlflowExperiment(
-        "benchmark",
-        run_name="MSL5",
+    (tmp_path / "result.txt").write_text("result")
+    tracking: MlflowCallback[str] = MlflowCallback(
+        run_name="text",
         parameters={"trainer": {"epochs": 3}, "seed": 7},
         configuration={"window": {"size": 32}},
-        dataset={"name": "synthetic", "series": ["MSL5"]},
-        tags={"series": "MSL5"},
-        description="Validation of the temporal protocol.",
+        dataset={"name": "synthetic"},
+        tags={"detectiv.run_status": "user", "detectiv.python": "user"},
+        description="Generic tracking.",
+        metrics_provider=lambda: {"test": {"score": 0.9, "label": "ignored"}},
+        artifact_directories={tmp_path: "results"},
         tracking_uri="http://mlflow:5000",
-    ) as experiment:
-        assert isinstance(experiment.callback, MlflowCallback)
-        experiment.log_artifacts(tmp_path)
+    )
+    scenario = TextScenario(callbacks=(tracking,))
+
+    assert scenario.run() == "complete"
 
     assert mlflow.tracking_uri == "http://mlflow:5000"
-    assert mlflow.experiment == "benchmark"
-    assert mlflow.start_arguments is not None
-    assert mlflow.start_arguments["run_name"] == "MSL5"
-    assert mlflow.start_arguments["log_system_metrics"] is True
+    assert mlflow.experiment == "experiments"
     assert mlflow.parameters == {"trainer.epochs": 3, "seed": 7}
     assert mlflow.dicts == [
         ({"window": {"size": 32}}, "detectiv/configuration.json"),
-        ({"name": "synthetic", "series": ["MSL5"]}, "detectiv/dataset.json"),
+        ({"name": "synthetic"}, "detectiv/dataset.json"),
     ]
-    assert mlflow.tags["mlflow.note.content"] == "Validation of the temporal protocol."
-    assert len(mlflow.tags["detectiv.dataset.manifest_sha256"]) == 64
-    assert mlflow.artifacts == [(str(tmp_path), "detectiv")]
-    assert mlflow.run.exit_arguments == (None, None, None)
+    assert mlflow.tags["detectiv.run_status"] == "succeeded"
+    assert mlflow.tags["detectiv.scenario_type"] == "text"
+    assert mlflow.tags["detectiv.python"] != "user"
+    assert mlflow.metrics == [("test.score", 0.9, None)]
+    assert mlflow.artifacts == [(str(tmp_path), "results")]
+    assert scenario.completed_run is not None
+    assert scenario.completed_run.mlflow_run_id == "native-run"
+    assert scenario.completed_run.mlflow_location == "mlruns:/native-run"
 
 
-def test_callback_logs_training_and_validation_curves(mlflow: FakeMlflow) -> None:
-    result = ReconstructionScenarioResult(
-        window_scores={},
-        point_scores={"plan": {"mean": {"series": np.array([1.0])}}},
-        training=TrainingHistory(
-            training_losses=(0.5, 0.25),
-            validation_losses=(0.4, 0.2),
-            best_epoch=1,
-            best_validation_loss=0.2,
-        ),
+def test_generic_tracker_records_failure_lifecycle(mlflow: FakeMlflow) -> None:
+    scenario = TextScenario(
+        callbacks=(MlflowCallback("benchmark"),), error=ValueError("bad input")
     )
 
-    with MlflowExperiment(
-        "benchmark",
-        metrics_provider=lambda: {"test": {"auroc": 0.9}},
-        log_training_curve=False,
-    ) as experiment:
-        experiment.callback.on_run_started()
-        experiment.callback.on_epoch_finished(
-            TrainingEpochEvent(0, 0.5, 0.4, (1e-3,), 2.0)
-        )
-        experiment.callback.on_epoch_finished(
-            TrainingEpochEvent(1, 0.25, 0.2, (1e-3,), 3.0)
-        )
-        experiment.callback.on_run_finished(result)
+    with pytest.raises(ValueError, match="bad input"):
+        scenario.run()
 
-    assert mlflow.metrics == [
-        ("training.loss", 0.5, 0),
-        ("validation.loss", 0.4, 0),
-        ("training.learning_rate.0", 1e-3, 0),
-        ("training.epoch_seconds", 2.0, 0),
-        ("training.loss", 0.25, 1),
-        ("validation.loss", 0.2, 1),
-        ("training.learning_rate.0", 1e-3, 1),
-        ("training.epoch_seconds", 3.0, 1),
-        ("test.auroc", 0.9, None),
-    ]
-    assert mlflow.tags["training.epochs"] == "2"
-    assert mlflow.tags["training.best_epoch"] == "1"
-    assert mlflow.tags["training.best_validation_loss"] == "0.2"
+    assert mlflow.tags["detectiv.run_status"] == "failed"
+    assert mlflow.tags["detectiv.error_type"] == "ValueError"
+    assert mlflow.run.exit_arguments is not None
+    assert isinstance(mlflow.run.exit_arguments[1], ValueError)
 
 
-def test_callback_logs_a_combined_training_loss_figure(mlflow: FakeMlflow) -> None:
-    result = ReconstructionScenarioResult(
-        window_scores={},
-        point_scores={"plan": {"mean": {"series": np.array([1.0])}}},
-        training=TrainingHistory(
-            training_losses=(0.5, 0.25),
-            validation_losses=(0.4, 0.2),
-            best_epoch=1,
-            best_validation_loss=0.2,
-        ),
-    )
+def test_generic_tracker_rejects_publication_outside_a_run() -> None:
+    tracking: MlflowCallback[str] = MlflowCallback("benchmark")
 
-    with MlflowExperiment("benchmark") as experiment:
-        experiment.callback.on_run_finished(result)
-
-    assert mlflow.figures == ["detectiv/training_loss.png"]
+    with pytest.raises(RuntimeError, match="not active"):
+        tracking.log_metrics({"score": 1.0})
+    with pytest.raises(RuntimeError, match="not active"):
+        tracking.log_artifacts(Path("missing"))
 
 
-def test_callback_logs_a_report_bundle_when_configured(
-    mlflow: FakeMlflow,
-) -> None:
-    result = ReconstructionScenarioResult(
-        window_scores={},
-        point_scores={"plan": {"mean": {"series": np.array([1.0])}}},
-        training=TrainingHistory(training_losses=(0.5,)),
-    )
-    experiment = MlflowExperiment(
-        "benchmark",
-        report_metrics_provider=lambda: {"test": {"auroc": 0.9}},
-        log_training_curve=False,
-    )
-
-    with experiment:
-        experiment.callback.on_run_finished(result)
-
-    assert len(mlflow.artifacts) == 1
-    assert mlflow.artifacts[0][1] == "detectiv"
-
-
-def test_experiment_requires_the_optional_dependency(
+def test_tracking_requires_the_optional_dependency(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def missing_mlflow(_: str) -> ModuleType:
@@ -207,14 +168,26 @@ def test_experiment_requires_the_optional_dependency(
 
     monkeypatch.setattr(importlib, "import_module", missing_mlflow)
 
-    with (
-        pytest.raises(ModuleNotFoundError, match="uv sync --extra experiment"),
-        MlflowExperiment("benchmark"),
-    ):
-        pass
+    with pytest.raises(ModuleNotFoundError, match="uv sync --extra experiment"):
+        TextScenario(callbacks=(MlflowCallback("benchmark"),)).run()
 
 
-def test_experiment_closes_a_run_when_setup_logging_fails(
+def test_untracked_scenarios_do_not_import_mlflow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_import = importlib.import_module
+
+    def reject_mlflow(name: str, package: str | None = None) -> ModuleType:
+        if name == "mlflow":
+            raise AssertionError("untracked scenarios must not import MLflow")
+        return original_import(name, package)
+
+    monkeypatch.setattr(importlib, "import_module", reject_mlflow)
+
+    assert TextScenario(callbacks=()).run() == "complete"
+
+
+def test_tracker_closes_a_run_when_setup_logging_fails(
     mlflow: FakeMlflow, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def fail(_: Mapping[str, object]) -> None:
@@ -223,7 +196,9 @@ def test_experiment_closes_a_run_when_setup_logging_fails(
     monkeypatch.setattr(mlflow, "log_params", fail)
 
     with pytest.raises(RuntimeError, match="unavailable tracking server"):
-        MlflowExperiment("benchmark", parameters={"seed": 42}).__enter__()
+        TextScenario(
+            callbacks=(MlflowCallback("benchmark", parameters={"seed": 42}),)
+        ).run()
 
     assert mlflow.run.exit_arguments is not None
     assert isinstance(mlflow.run.exit_arguments[1], RuntimeError)

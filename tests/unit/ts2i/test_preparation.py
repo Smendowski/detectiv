@@ -9,7 +9,7 @@ from detectiv.time_series import (
 from detectiv.time_series.windowing import WindowSpec
 from detectiv.ts2i import ImagePreparation
 from detectiv.ts2i.channelization import MeanStdMaxChannelization
-from detectiv.ts2i.projection import ConfiguredProjectionStrategy, ProjectionScheme
+from detectiv.ts2i.projection import FixedProjectionStrategy, ProjectionScheme
 from detectiv.ts2i.transformations import Spiral
 
 
@@ -18,7 +18,7 @@ def test_preparation_allows_a_split_with_no_windows() -> None:
         "series",
         {"series": TimeSeries(np.arange(6), series_id="series")},
     )
-    projection = ConfiguredProjectionStrategy(
+    projection = FixedProjectionStrategy(
         ProjectionScheme(MeanStdMaxChannelization()).channels(
             Spiral(), Spiral(), Spiral()
         )
@@ -43,7 +43,7 @@ def test_preparation_inspection_reports_window_coverage() -> None:
         "series",
         {"series": TimeSeries(np.arange(8), series_id="series")},
     )
-    projection = ConfiguredProjectionStrategy(
+    projection = FixedProjectionStrategy(
         ProjectionScheme(MeanStdMaxChannelization()).channels(
             Spiral(), Spiral(), Spiral()
         )

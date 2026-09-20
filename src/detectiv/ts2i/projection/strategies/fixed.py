@@ -6,7 +6,7 @@ from detectiv.ts2i.projection.schemes import ProjectionScheme
 from detectiv.ts2i.projection.strategies.base import ProjectionStrategy
 
 
-class ConfiguredProjectionStrategy(ProjectionStrategy):
+class FixedProjectionStrategy(ProjectionStrategy):
     def __init__(self, scheme: ProjectionScheme) -> None:
         self.scheme = scheme
 

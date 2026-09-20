@@ -1,3 +1,9 @@
+from detectiv.ts2i.materialization import (
+    CandidateMeasurement,
+    DataLoaderSettings,
+    MaterializationReport,
+    MaterializationSettings,
+)
 from detectiv.ts2i.preparation import (
     ImagePreparation,
     ImagePreparationInspection,
@@ -6,8 +12,12 @@ from detectiv.ts2i.preparation import (
 )
 
 __all__ = [
+    "CandidateMeasurement",
+    "DataLoaderSettings",
     "ImagePreparation",
     "ImagePreparationInspection",
     "ImageSeriesInspection",
     "ImageSplitInspection",
+    "MaterializationReport",
+    "MaterializationSettings",
 ]

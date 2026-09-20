@@ -1,41 +1,24 @@
+from __future__ import annotations
+
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from time import perf_counter
 from types import MappingProxyType
 
 import numpy as np
 
 from detectiv.callbacks.base import BaseCallback
 from detectiv.images import ImageDataset
-from detectiv.models.autoencoders import (
-    Autoencoder,
-    AutoencoderTrainer,
-    TrainingHistory,
-)
-from detectiv.models.events import TrainingEpochEvent
-from detectiv.scenarios.training import TrainingMode
+from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
+from detectiv.protocols import TrainingMode
+from detectiv.runs import JSONValue, ReproducibilitySettings
+from detectiv.scenarios.base import BaseScenario
+from detectiv.scenarios.results import ReconstructionScenarioResult
 from detectiv.scoring import (
     ReconstructionScoringPlan,
     WindowEvidenceBatch,
 )
 from detectiv.time_series import TemporalSplit
-
-
-@dataclass(frozen=True)
-class ReconstructionScenarioResult:
-    window_scores: Mapping[str, WindowEvidenceBatch]
-    point_scores: Mapping[str, Mapping[str, Mapping[str, np.ndarray]]]
-    training: TrainingHistory
-    callbacks: Mapping[str, BaseCallback] = field(
-        default_factory=lambda: MappingProxyType({})
-    )
-
-    @property
-    def training_losses(self) -> tuple[float, ...]:
-        return self.training.training_losses
-
-    @property
-    def validation_losses(self) -> tuple[float, ...]:
-        return self.training.validation_losses
 
 
 @dataclass(frozen=True)
@@ -61,7 +44,9 @@ class ReconstructionScenarioInspection:
         )
 
 
-class ReconstructionScenario:
+class ReconstructionScenario(BaseScenario[ReconstructionScenarioResult]):
+    scenario_type = "reconstruction"
+
     def __init__(
         self,
         *,
@@ -69,8 +54,9 @@ class ReconstructionScenario:
         model: Autoencoder,
         training_mode: TrainingMode,
         scoring_plans: Sequence[ReconstructionScoringPlan],
-        callbacks: Sequence[BaseCallback] = (),
+        callbacks: Sequence[BaseCallback[ReconstructionScenarioResult]] = (),
         trainer: AutoencoderTrainer | None = None,
+        reproducibility: ReproducibilitySettings | None = None,
     ) -> None:
         self.images = images
         self.model = model
@@ -79,52 +65,99 @@ class ReconstructionScenario:
             raise ValueError("at least one scoring plan is required")
         if len({plan.name for plan in scoring_plans}) != len(scoring_plans):
             raise ValueError("scoring plan names must be unique")
-        if len({callback.name for callback in callbacks}) != len(callbacks):
-            raise ValueError("callback names must be unique")
         self.scoring_plans = tuple(scoring_plans)
-        self.callbacks = tuple(callbacks)
+        super().__init__(callbacks=callbacks, reproducibility=reproducibility)
         self.trainer = trainer or AutoencoderTrainer()
 
-    def run(self) -> ReconstructionScenarioResult:
-        try:
-            self._notify_started()
-            if not len(self.images.test):
-                raise ValueError("test images must contain at least one window")
-            partition = self.training_mode.partition(
-                self.images.train,
-                self.images.validation,
-            )
-            training = self.trainer.fit(
-                self.model,
-                self.images.train,
-                partition.training_indices,
-                validation=partition.validation_images,
-                validation_indices=partition.validation_indices,
-                on_epoch_finished=self._notify_epoch_finished,
-            )
-            window_scores = {
-                plan.name: plan.scorer.score(self.model, self.images.test)
+    def _run(self) -> ReconstructionScenarioResult:
+        if not len(self.images.test):
+            raise ValueError("test images must contain at least one window")
+
+        partition = self.training_mode.partition(
+            self.images.train,
+            self.images.validation,
+        )
+        training_started = perf_counter()
+        training = self.trainer.fit(
+            self.model,
+            self.images.train,
+            partition.training_indices,
+            validation=partition.validation_images,
+            validation_indices=partition.validation_indices,
+            on_epoch_finished=self._notify_epoch_finished,
+        )
+        training_seconds = perf_counter() - training_started
+        scoring_started = perf_counter()
+        window_scores = {
+            plan.name: plan.scorer.score(self.model, self.images.test)
+            for plan in self.scoring_plans
+        }
+        self._validate_scores(window_scores)
+        scoring_seconds = perf_counter() - scoring_started
+        propagation_started = perf_counter()
+        point_scores = MappingProxyType(
+            {
+                plan.name: self._propagate(plan, window_scores[plan.name])
                 for plan in self.scoring_plans
             }
-            self._validate_scores(window_scores)
-            result = ReconstructionScenarioResult(
-                window_scores=MappingProxyType(window_scores),
-                point_scores=MappingProxyType(
-                    {
-                        plan.name: self._propagate(plan, window_scores[plan.name])
-                        for plan in self.scoring_plans
-                    }
-                ),
-                training=training,
-                callbacks=MappingProxyType(
-                    {callback.name: callback for callback in self.callbacks}
-                ),
-            )
-        except BaseException as error:
-            self._notify_failed(error)
-            raise
-        self._notify_finished(result)
-        return result
+        )
+        propagation_seconds = perf_counter() - propagation_started
+
+        return ReconstructionScenarioResult(
+            window_scores=MappingProxyType(window_scores),
+            point_scores=point_scores,
+            training=training,
+            callbacks=MappingProxyType(
+                {callback.name: callback for callback in self.callbacks}
+            ),
+            reproducibility=(
+                MappingProxyType({})
+                if self.reproducibility is None
+                else self.reproducibility.record(device=training.device)
+            ),
+            resolved_inputs={
+                "scenario": _type_name(self),
+                "data": {
+                    "train": _dataset_record(self.images.train),
+                    "validation": (
+                        None
+                        if self.images.validation is None
+                        else _dataset_record(self.images.validation)
+                    ),
+                    "test": _dataset_record(self.images.test),
+                },
+                "model": {
+                    "type": _type_name(self.model),
+                    "encoder": _component_record(self.model.encoder),
+                    "bottleneck": (
+                        None
+                        if self.model.bottleneck is None
+                        else _component_record(self.model.bottleneck)
+                    ),
+                    "decoder": _component_record(self.model.decoder),
+                },
+                "training_mode": {
+                    **_component_record(self.training_mode),
+                    "validation_holdout": (
+                        None
+                        if self.training_mode.validation_holdout is None
+                        else _component_record(self.training_mode.validation_holdout)
+                    ),
+                },
+                "trainer": _trainer_record(self.trainer),
+                "scoring_plans": [
+                    _scoring_plan_record(plan) for plan in self.scoring_plans
+                ],
+                "performance": {
+                    "data_wait_seconds": training.data_wait_seconds,
+                    "transfer_seconds": training.transfer_seconds,
+                    "training_seconds": training_seconds,
+                    "validation_seconds": training.validation_seconds,
+                    "scoring_seconds": scoring_seconds,
+                    "propagation_seconds": propagation_seconds,
+                },
+            },
+        )
 
     def inspect(self) -> ReconstructionScenarioInspection:
         return ReconstructionScenarioInspection(
@@ -172,24 +205,86 @@ class ReconstructionScenario:
                     f"{', '.join(sorted(missing))}"
                 )
 
-    def _notify_started(self) -> None:
-        for callback in self.callbacks:
-            callback.on_run_started()
-
-    def _notify_epoch_finished(self, event: TrainingEpochEvent) -> None:
-        for callback in self.callbacks:
-            callback.on_epoch_finished(event)
-
-    def _notify_finished(self, result: ReconstructionScenarioResult) -> None:
-        for callback in self.callbacks:
-            callback.on_run_finished(result)
-
-    def _notify_failed(self, error: BaseException) -> None:
-        for callback in self.callbacks:
-            callback.on_run_failed(error)
-
 
 def _readonly(values: np.ndarray) -> np.ndarray:
     result = np.array(values, copy=True)
     result.setflags(write=False)
     return result
+
+
+def _dataset_record(dataset: ImageDataset) -> dict[str, JSONValue]:
+    record: dict[str, JSONValue] = {
+        "dataset_id": dataset.dataset_id,
+        "image_shape": list(dataset.image_shape.shape),
+        "window_count": len(dataset),
+        "series_lengths": dict(dataset.series_lengths),
+    }
+    if "ts2i_performance" in dataset.metadata:
+        record["ts2i_performance"] = dataset.metadata["ts2i_performance"]  # type: ignore[assignment]
+    return record
+
+
+def _trainer_record(trainer: AutoencoderTrainer) -> dict[str, JSONValue]:
+    return {
+        "epochs": trainer.epochs,
+        "batch_size": trainer.batch_size,
+        "learning_rate": trainer.learning_rate,
+        "weight_decay": trainer.weight_decay,
+        "device": trainer.device,
+        "shuffle_seed": trainer.shuffle_seed,
+        "optimizer": _callable_name(trainer.optimizer),
+        "scheduler_factory": (
+            None
+            if trainer.scheduler_factory is None
+            else _callable_name(trainer.scheduler_factory)
+        ),
+        "transfer_strategy": _component_record(trainer.transfer_strategy),
+        "loss": _component_record(trainer.loss),
+        "early_stopping_patience": trainer.early_stopping_patience,
+        "min_delta": trainer.min_delta,
+        "restore_best_validation": trainer.restore_best_validation,
+        "data_loader": {
+            "workers": trainer.data_loader.workers,
+            "prefetch_factor": trainer.data_loader.prefetch_factor,
+            "persistent_workers": trainer.data_loader.persistent_workers,
+            "pin_memory": trainer.data_loader.pin_memory,
+        },
+    }
+
+
+def _scoring_plan_record(plan: ReconstructionScoringPlan) -> dict[str, JSONValue]:
+    return {
+        "name": plan.name,
+        "scorer": _component_record(plan.scorer),
+        "point_scoring": [
+            {
+                "name": point_plan.name,
+                "assignment": _component_record(point_plan.assignment),
+                "aggregator": _component_record(point_plan.aggregator),
+            }
+            for point_plan in plan.point_scoring
+        ],
+    }
+
+
+def _component_record(component: object) -> dict[str, JSONValue]:
+    settings = {
+        name: value
+        for name, value in vars(component).items()
+        if isinstance(value, bool | int | float | str) or value is None
+    }
+    return {
+        "type": _type_name(component),
+        "settings": settings,
+        "configuration": str(component),
+    }
+
+
+def _type_name(value: object) -> str:
+    return f"{type(value).__module__}.{type(value).__qualname__}"
+
+
+def _callable_name(value: object) -> str:
+    module = getattr(value, "__module__", type(value).__module__)
+    name = getattr(value, "__qualname__", type(value).__qualname__)
+    return f"{module}.{name}"

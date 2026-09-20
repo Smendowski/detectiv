@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -12,7 +14,7 @@ class ProjectionScheme:
     _transformations: tuple[TS2ITransformation, ...] = ()
     _replication_count: int | None = None
 
-    def channels(self, *transformations: TS2ITransformation) -> "ProjectionScheme":
+    def channels(self, *transformations: TS2ITransformation) -> ProjectionScheme:
         if not transformations:
             raise ValueError("at least one transformation is required")
         return replace(
@@ -21,7 +23,7 @@ class ProjectionScheme:
             _replication_count=None,
         )
 
-    def replicate(self, *, n_channels: int) -> "ProjectionScheme":
+    def replicate(self, *, n_channels: int) -> ProjectionScheme:
         if n_channels <= 0:
             raise ValueError("n_channels must be positive")
         if len(self._transformations) != 1:

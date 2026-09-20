@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from hashlib import blake2b
 
 import numpy as np
@@ -12,7 +14,7 @@ from detectiv.time_series.windowing import (
 from detectiv.ts2i.projection import ProjectionScheme
 
 
-class GeneratedImageSource(ImageSource):
+class ProjectedWindowImageSource(ImageSource):
     def __init__(
         self,
         dataset: TimeSeriesDataset,
@@ -41,7 +43,7 @@ class GeneratedImageSource(ImageSource):
         )
 
         self.window_references = self._references()
-        self.window_labels = self._labels(dataset, window.labeling_strategy)
+        self.window_labels = self._labels(dataset, window.labeling)
 
     def _references(self) -> tuple[WindowReference, ...]:
         references: list[WindowReference] = []
@@ -63,7 +65,7 @@ class GeneratedImageSource(ImageSource):
     def _labels(
         self,
         dataset: TimeSeriesDataset,
-        strategy: "WindowLabelingStrategy",
+        strategy: WindowLabelingStrategy,
     ) -> np.ndarray | None:
         labels = tuple(dataset[series_id].labels for series_id in dataset.series_ids)
         if all(label is None for label in labels):

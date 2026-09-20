@@ -47,6 +47,7 @@ class PointScoreAggregator(ABC):
             raise ValueError("at least one point contribution is required")
         if len({reference.series_id for reference in contributions.references}) != 1:
             raise ValueError("point contributions must belong to one series")
+
         point_scores, coverage = self._aggregate(contributions, series_length)
         return self._resolve_uncovered(point_scores, coverage)
 
@@ -71,12 +72,12 @@ class PointScoreAggregator(ABC):
         missing = coverage == 0
         if not missing.any():
             return point_scores
+
         first_missing = int(np.flatnonzero(missing)[0])
-        if (
-            self.uncovered is not UncoveredPolicy.EDGE_PAD
-            or first_missing == 0
-            or not missing[first_missing:].all()
-        ):
+        if self.uncovered is not UncoveredPolicy.EDGE_PAD:
             raise ValueError("window configuration leaves uncovered time points")
+        if first_missing == 0 or not missing[first_missing:].all():
+            raise ValueError("window configuration leaves uncovered time points")
+
         point_scores[first_missing:] = point_scores[first_missing - 1]
         return point_scores

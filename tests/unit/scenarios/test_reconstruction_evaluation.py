@@ -1,9 +1,13 @@
 import numpy as np
 import pytest
 
-from detectiv.callbacks import EvaluationCallback
 from detectiv.models.autoencoders import TrainingHistory
-from detectiv.scenarios.reconstruction import ReconstructionScenarioResult
+from detectiv.scenarios import (
+    EvaluationRecord,
+    EvaluationReport,
+    ReconstructionEvaluationCallback,
+    ReconstructionScenarioResult,
+)
 from detectiv.scoring import WindowScoreBatch
 from detectiv.time_series.windowing import WindowReference
 
@@ -17,7 +21,7 @@ class MeanScoreEvaluator:
 
 
 def test_metrics_callback_evaluates_each_original_label_series() -> None:
-    callback = EvaluationCallback(
+    callback = ReconstructionEvaluationCallback(
         MeanScoreEvaluator(),
         {"series": np.array([0, 1, 0], dtype=np.int32)},
     )
@@ -34,12 +38,16 @@ def test_metrics_callback_evaluates_each_original_label_series() -> None:
     callback.on_run_started()
     callback.on_run_finished(result)
 
-    assert callback.metrics == {"window": {"mean": {"series": {"mean": 2.0}}}}
+    assert callback.metrics == EvaluationReport(
+        (EvaluationRecord("window", "mean", "series", {"mean": 2.0}),)
+    )
     assert callback.tracking_metrics() == {"window": {"mean": {"mean": 2.0}}}
 
 
 def test_metrics_callback_rejects_unaligned_point_scores() -> None:
-    callback = EvaluationCallback(MeanScoreEvaluator(), {"series": np.array([0, 1])})
+    callback = ReconstructionEvaluationCallback(
+        MeanScoreEvaluator(), {"series": np.array([0, 1])}
+    )
     result = ReconstructionScenarioResult(
         window_scores={},
         point_scores={"plan": {"mean": {"series": np.array([1.0])}}},
@@ -48,3 +56,9 @@ def test_metrics_callback_rejects_unaligned_point_scores() -> None:
 
     with pytest.raises(ValueError, match="aligned with labels"):
         callback.on_run_finished(result)
+
+
+@pytest.mark.parametrize("labels", [np.array([0.5, 1.0]), np.array([0.0, 1.9])])
+def test_metrics_callback_rejects_fractional_labels(labels: np.ndarray) -> None:
+    with pytest.raises(ValueError, match="binary"):
+        ReconstructionEvaluationCallback(MeanScoreEvaluator(), {"series": labels})
