@@ -35,12 +35,30 @@ def test_window_spec_normalizes_string_enums() -> None:
     spec = WindowSpec(
         4,
         tail=cast(TailPolicy, "drop"),
-        labeling_strategy=cast(WindowLabelingStrategy, "start"),
+        labeling=cast(WindowLabelingStrategy, "start"),
     )
 
     assert spec.tail is TailPolicy.DROP
-    assert spec.labeling_strategy is WindowLabelingStrategy.START
+    assert spec.labeling is WindowLabelingStrategy.START
     assert spec.windower().transform(TimeSeries(np.arange(6))).n_windows == 1
+
+
+def test_window_spec_supports_the_deprecated_labeling_strategy_alias() -> None:
+    with pytest.deprecated_call(match="labeling_strategy"):
+        spec = WindowSpec(4, labeling_strategy=WindowLabelingStrategy.START)
+
+    assert spec.labeling is WindowLabelingStrategy.START
+    with pytest.deprecated_call(match="labeling_strategy"):
+        assert spec.labeling_strategy is WindowLabelingStrategy.START
+
+
+def test_window_spec_rejects_both_labeling_keywords() -> None:
+    with pytest.raises(TypeError, match="either labeling"):
+        WindowSpec(
+            4,
+            labeling=WindowLabelingStrategy.START,
+            labeling_strategy=WindowLabelingStrategy.END,
+        )
 
 
 @pytest.mark.parametrize("value", [2.5, True])
@@ -52,6 +70,12 @@ def test_window_spec_rejects_non_integral_dimensions(value: object) -> None:
 def test_window_reference_requires_matching_stop_and_valid_length() -> None:
     with pytest.raises(ValueError, match="match the window bounds"):
         WindowReference("series", 0, 4, 2)
+
+
+@pytest.mark.parametrize("start", [0.5, True])
+def test_window_reference_requires_integral_bounds(start: object) -> None:
+    with pytest.raises(ValueError, match="start must be an integer"):
+        WindowReference("series", start, 2, 2)  # type: ignore[arg-type]
 
 
 def test_overlapping_windows_are_views_with_point_coverage() -> None:

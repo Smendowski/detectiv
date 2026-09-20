@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from types import MappingProxyType
 from typing import TYPE_CHECKING
@@ -10,6 +12,8 @@ if TYPE_CHECKING:
 
 
 class TimeSeriesDataset:
+    """Named collection of time series sharing one feature schema."""
+
     def __init__(
         self,
         dataset_id: str,
@@ -17,6 +21,11 @@ class TimeSeriesDataset:
         *,
         metadata: Mapping[str, object] | None = None,
     ) -> None:
+        """Create a non-empty dataset with immutable metadata and series mappings.
+
+        Raises:
+            ValueError: If IDs, series membership, or feature schemas are invalid.
+        """
         if not dataset_id:
             raise ValueError("dataset_id must not be empty")
         if not series:
@@ -33,15 +42,19 @@ class TimeSeriesDataset:
 
     @property
     def series_ids(self) -> tuple[str, ...]:
+        """Return series IDs in insertion order."""
         return tuple(self.series)
 
     def __len__(self) -> int:
+        """Return the number of series in the dataset."""
         return len(self.series)
 
     def __getitem__(self, series_id: str) -> TimeSeries:
+        """Return the series identified by ``series_id``."""
         return self.series[series_id]
 
-    def split(self, splitter: "TemporalSplitter") -> TemporalSplit["TimeSeriesDataset"]:
+    def split(self, splitter: TemporalSplitter) -> TemporalSplit[TimeSeriesDataset]:
+        """Split every series using a configured temporal splitter."""
         return splitter.split(self)
 
 

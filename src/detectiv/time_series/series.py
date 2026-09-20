@@ -1,9 +1,15 @@
+from __future__ import annotations
+
+from operator import index
+
 import numpy as np
 
 from detectiv.time_series.split import TemporalSplit
 
 
 class TimeSeries:
+    """Validated immutable time-series values with optional labels and metadata."""
+
     def __init__(
         self,
         values: np.ndarray,
@@ -13,6 +19,15 @@ class TimeSeries:
         sampling_rate: float | None = None,
         series_id: str | None = None,
     ) -> None:
+        """Create a series from finite real values.
+
+        Args:
+            values: One feature vector or a two-dimensional time-by-feature array.
+            labels: Optional binary anomaly labels, one per timestep.
+            feature_names: Optional unique names for the feature columns.
+            sampling_rate: Optional positive sampling rate.
+            series_id: Optional identifier retained by derived series.
+        """
         values = np.asarray(values)
         if values.ndim == 1:
             values = values[:, np.newaxis]
@@ -30,7 +45,11 @@ class TimeSeries:
             raise ValueError("values must not contain NaN or infinity")
 
         dtype = np.float32 if values.dtype == np.float32 else np.float64
-        self.values = np.array(values, dtype=dtype, order="C", copy=True)
+        with np.errstate(over="ignore"):
+            normalized_values = np.array(values, dtype=dtype, order="C", copy=True)
+        if not np.all(np.isfinite(normalized_values)):
+            raise ValueError("values must remain finite after normalization")
+        self.values = normalized_values
         self.values.setflags(write=False)
 
         self.labels: np.ndarray | None = None
@@ -61,19 +80,30 @@ class TimeSeries:
 
     @property
     def n_timesteps(self) -> int:
+        """Return the number of temporal observations."""
         return int(self.values.shape[0])
 
     @property
     def n_features(self) -> int:
+        """Return the number of feature columns."""
         return int(self.values.shape[1])
 
     @property
     def is_univariate(self) -> bool:
+        """Return whether the series has exactly one feature."""
         return self.n_features == 1
 
     def split(
         self, train_end: int, validation_end: int | None = None
-    ) -> TemporalSplit["TimeSeries"]:
+    ) -> TemporalSplit[TimeSeries]:
+        """Split the series into chronological train, validation, and test segments.
+
+        Raises:
+            ValueError: If boundaries are not integral, ordered, and strictly internal.
+        """
+        train_end = _index_value(train_end, "train_end")
+        if validation_end is not None:
+            validation_end = _index_value(validation_end, "validation_end")
         test_start = train_end if validation_end is None else validation_end
         if not 0 < train_end < self.n_timesteps:
             raise ValueError("train_end must lie strictly within the series")
@@ -95,7 +125,7 @@ class TimeSeries:
             test=self._segment(test_start, self.n_timesteps),
         )
 
-    def _segment(self, start: int, stop: int) -> "TimeSeries":
+    def _segment(self, start: int, stop: int) -> TimeSeries:
         labels = None if self.labels is None else self.labels[start:stop]
         return TimeSeries(
             self.values[start:stop],
@@ -104,3 +134,12 @@ class TimeSeries:
             sampling_rate=self.sampling_rate,
             series_id=self.series_id,
         )
+
+
+def _index_value(value: int, name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer")
+    try:
+        return index(value)
+    except TypeError as error:
+        raise ValueError(f"{name} must be an integer") from error

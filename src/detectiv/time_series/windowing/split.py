@@ -4,12 +4,16 @@ from detectiv.time_series.windowing.core import WindowSpec
 
 
 class SplitPart(StrEnum):
+    """Named temporal partitions with independent window specifications."""
+
     TRAIN = "train"
     VALIDATION = "validation"
     TEST = "test"
 
 
 class SplitWindowing:
+    """Window specifications for train, optional validation, and test partitions."""
+
     def __init__(
         self,
         *,
@@ -17,11 +21,17 @@ class SplitWindowing:
         test: WindowSpec,
         validation: WindowSpec | None = None,
     ) -> None:
+        """Create split-specific windowing configuration."""
         self.train = train
         self.validation = validation
         self.test = test
 
     def spec_for(self, part: SplitPart | str) -> WindowSpec:
+        """Return the specification configured for one split partition.
+
+        Raises:
+            ValueError: If the part is unknown or validation is not configured.
+        """
         try:
             part = SplitPart(part)
         except ValueError as error:

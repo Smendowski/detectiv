@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from dataclasses import dataclass
 from importlib import import_module, util
@@ -75,7 +77,7 @@ class TSBADAdapter:
         sliding_window: int,
         version: str = "opt",
         thresholds: int = 250,
-    ) -> "TSBADEvaluator":
+    ) -> TSBADEvaluator:
         """Create a metric evaluator configured for this TSB-AD source.
 
         Args:

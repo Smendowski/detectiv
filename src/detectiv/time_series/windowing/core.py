@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import StrEnum
 from operator import index
 from typing import SupportsIndex, cast
+from warnings import warn
 
 import numpy as np
 from numpy.typing import NDArray
@@ -10,23 +13,30 @@ from detectiv.time_series.series import TimeSeries
 
 
 class WindowMode(StrEnum):
+    """Relationship between a window's stride and length."""
+
     OVERLAPPING = "overlapping"
     CONTIGUOUS = "contiguous"
     NON_OVERLAPPING = "non_overlapping"
 
 
 class TailPolicy(StrEnum):
+    """How incomplete trailing observations are handled."""
+
     DROP = "drop"
     ZERO_PAD = "zero_pad"
     EDGE_PAD = "edge_pad"
 
 
 class WindowLabelingStrategy(StrEnum):
+    """Rule for reducing point labels to one window label."""
+
     OR_POOLING = "or_pooling"
     START = "start"
     END = "end"
 
     def label(self, labels: np.ndarray) -> bool:
+        """Reduce one non-empty vector of point labels to a window label."""
         if labels.ndim != 1 or not len(labels):
             raise ValueError("labels must be a non-empty one-dimensional array")
         if self is WindowLabelingStrategy.OR_POOLING:
@@ -36,40 +46,81 @@ class WindowLabelingStrategy(StrEnum):
         return bool(labels[-1])
 
 
-@dataclass(frozen=True)
+_DEFAULT_LABELING = object()
+
+
+@dataclass(frozen=True, init=False)
 class WindowSpec:
+    """Immutable configuration for fixed-length window extraction."""
+
     length: int
     stride: int | None = None
     tail: TailPolicy = TailPolicy.DROP
-    labeling_strategy: WindowLabelingStrategy = WindowLabelingStrategy.OR_POOLING
+    labeling: WindowLabelingStrategy = WindowLabelingStrategy.OR_POOLING
 
-    def __post_init__(self) -> None:
-        length = _positive_index(self.length, "length")
-        stride = None if self.stride is None else _positive_index(self.stride, "stride")
+    def __init__(
+        self,
+        length: int,
+        stride: int | None = None,
+        tail: TailPolicy = TailPolicy.DROP,
+        labeling: WindowLabelingStrategy | object = _DEFAULT_LABELING,
+        *,
+        labeling_strategy: WindowLabelingStrategy | None = None,
+    ) -> None:
+        """Create a window specification.
+
+        ``labeling_strategy`` remains a deprecated alias for ``labeling``.
+        """
+        if labeling is not _DEFAULT_LABELING and labeling_strategy is not None:
+            raise TypeError("specify either labeling or labeling_strategy, not both")
+        if labeling_strategy is not None:
+            warn(
+                "labeling_strategy is deprecated; use labeling instead",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            labeling = labeling_strategy
+        if labeling is _DEFAULT_LABELING:
+            labeling = WindowLabelingStrategy.OR_POOLING
+
+        length = _positive_index(length, "length")
+        stride = None if stride is None else _positive_index(stride, "stride")
         if length <= 0:
             raise ValueError("length must be positive")
         if stride is not None and stride <= 0:
             raise ValueError("stride must be positive")
         try:
-            tail = TailPolicy(self.tail)
+            tail = TailPolicy(tail)
         except ValueError as error:
-            raise ValueError(f"unsupported tail policy: {self.tail!r}") from error
+            raise ValueError(f"unsupported tail policy: {tail!r}") from error
         try:
-            labeling_strategy = WindowLabelingStrategy(self.labeling_strategy)
+            labeling = WindowLabelingStrategy(cast(str, labeling))
         except ValueError as error:
             raise ValueError(
-                f"unsupported window labeling strategy: {self.labeling_strategy!r}"
+                f"unsupported window labeling strategy: {labeling!r}"
             ) from error
         object.__setattr__(self, "length", length)
         object.__setattr__(self, "stride", stride)
         object.__setattr__(self, "tail", tail)
-        object.__setattr__(self, "labeling_strategy", labeling_strategy)
+        object.__setattr__(self, "labeling", labeling)
+
+    @property
+    def labeling_strategy(self) -> WindowLabelingStrategy:
+        """Deprecated alias for :attr:`labeling`."""
+        warn(
+            "labeling_strategy is deprecated; use labeling instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.labeling
 
     @property
     def resolved_stride(self) -> int:
+        """Return the configured stride or the window length when omitted."""
         return self.length if self.stride is None else self.stride
 
-    def windower(self) -> "Windower":
+    def windower(self) -> Windower:
+        """Create a windower using this specification's geometry and tail policy."""
         return Windower(self.length, self.stride, self.tail)
 
 
@@ -84,6 +135,8 @@ def _positive_index(value: int, name: str) -> int:
 
 @dataclass(frozen=True)
 class WindowBatch:
+    """Read-only extracted windows and their positions in an original series."""
+
     values: np.ndarray
     starts: np.ndarray
     series_length: int
@@ -128,20 +181,24 @@ class WindowBatch:
 
     @property
     def n_windows(self) -> int:
+        """Return the number of extracted windows."""
         return int(self.values.shape[0])
 
     @property
     def length(self) -> int:
+        """Return the fixed width of every window."""
         return int(self.values.shape[1])
 
     @property
     def stops(self) -> NDArray[np.intp]:
+        """Return exclusive stops based on each window's valid, unpadded length."""
         assert self.valid_lengths is not None
         stops = self.starts + self.valid_lengths
         stops.setflags(write=False)
         return cast(NDArray[np.intp], stops)
 
     def point_coverage(self) -> NDArray[np.intp]:
+        """Return how many windows cover each original-series timestep."""
         changes = np.zeros(self.series_length + 1, dtype=np.intp)
         np.add.at(changes, self.starts, 1)
         np.add.at(changes, self.stops, -1)
@@ -169,24 +226,30 @@ def _index_array(values: object, name: str, length: int) -> NDArray[np.intp]:
 
 
 class Windower:
+    """Extract fixed-length windows from a time series."""
+
     def __init__(
         self,
         length: int,
         stride: int | None = None,
         tail: TailPolicy = TailPolicy.DROP,
     ) -> None:
+        """Create a windower from window geometry and a trailing-tail policy."""
         self.spec = WindowSpec(length, stride, tail)
 
     @property
     def length(self) -> int:
+        """Return the fixed window length."""
         return self.spec.length
 
     @property
     def stride(self) -> int:
+        """Return the resolved positive stride."""
         return self.spec.resolved_stride
 
     @property
     def mode(self) -> WindowMode:
+        """Return whether windows overlap, are contiguous, or leave gaps."""
         if self.stride < self.length:
             return WindowMode.OVERLAPPING
         if self.stride == self.length:
@@ -194,6 +257,11 @@ class Windower:
         return WindowMode.NON_OVERLAPPING
 
     def transform(self, series: TimeSeries) -> WindowBatch:
+        """Extract complete windows and optionally append one padded trailing window.
+
+        Returned positions always describe valid observations in the original series;
+        padded values do not extend a window's coverage.
+        """
         n_complete = 0
         if series.n_timesteps >= self.length:
             n_complete = 1 + (series.n_timesteps - self.length) // self.stride

@@ -41,6 +41,7 @@ nav:
   - Design: design.md
   - First Experiment: first-experiment.md
   - Experiment Surfaces: experiment-surfaces.md
+  - Time Series: time-series.md
   - Benchmarks:
       - Overview: benchmarks/index.md
       - TSB-AD: benchmarks/tsb-ad.md
@@ -49,6 +50,21 @@ nav:
       - Benchmarks:
           - Overview: api/benchmarks/index.md
           - TSB-AD: api/benchmarks/tsb-ad.md
+      - Time Series:
+          - Series: api/time-series/series.md
+          - Dataset: api/time-series/dataset.md
+          - Split: api/time-series/split.md
+          - Splitters: api/time-series/splitters.md
+          - Preprocessing:
+              - Preprocessor Contract: api/time-series/preprocessing/base.md
+              - Feature Selection: api/time-series/preprocessing/feature-selection.md
+              - Pipeline: api/time-series/preprocessing/pipeline.md
+              - Scaling: api/time-series/preprocessing/scaling.md
+          - Windowing:
+              - Core: api/time-series/windowing/core.md
+              - Length Strategies: api/time-series/windowing/lengths.md
+              - Window Reference: api/time-series/windowing/reference.md
+              - Split Windowing: api/time-series/windowing/split.md
       - Callbacks: api/callbacks.md
       - Runs: api/runs.md
   - Development: development.md

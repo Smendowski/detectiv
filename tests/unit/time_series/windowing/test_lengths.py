@@ -31,3 +31,20 @@ def test_acf_window_length_selects_an_explicit_feature() -> None:
 def test_acf_window_length_rejects_missing_feature() -> None:
     with pytest.raises(ValueError, match="feature_index"):
         ACFWindowLength(feature_index=1).select(TimeSeries(np.arange(80)))
+
+
+@pytest.mark.parametrize("length", [2.5, True])
+def test_fixed_window_length_requires_an_integer(length: object) -> None:
+    with pytest.raises(ValueError, match="length must be an integer"):
+        FixedWindowLength(length)  # type: ignore[arg-type]
+
+
+def test_acf_window_length_requires_integral_bounds() -> None:
+    with pytest.raises(ValueError, match="max_length must be an integer"):
+        ACFWindowLength(max_length=20.5)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("threshold", [float("nan"), float("inf")])
+def test_acf_window_length_requires_a_finite_threshold(threshold: float) -> None:
+    with pytest.raises(ValueError, match="finite"):
+        ACFWindowLength(threshold_multiplier=threshold)

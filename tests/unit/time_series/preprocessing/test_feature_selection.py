@@ -69,3 +69,29 @@ def test_failed_refit_preserves_the_previous_feature_selection() -> None:
 def test_constant_feature_removal_rejects_non_finite_tolerance() -> None:
     with pytest.raises(ValueError, match="finite"):
         ConstantFeatureRemoval(tolerance=float("nan"))
+
+
+def test_constant_feature_removal_rejects_reordered_named_features() -> None:
+    train = TimeSeriesDataset(
+        "train",
+        {
+            "series": TimeSeries(
+                np.array([[0.0, 1.0], [1.0, 1.0]]),
+                feature_names=("kept", "constant"),
+                series_id="series",
+            )
+        },
+    )
+    reordered = TimeSeriesDataset(
+        "test",
+        {
+            "series": TimeSeries(
+                np.array([[3.0, 2.0]]),
+                feature_names=("constant", "kept"),
+                series_id="series",
+            )
+        },
+    )
+
+    with pytest.raises(ValueError, match="feature names"):
+        ConstantFeatureRemoval().fit(train).transform(reordered)

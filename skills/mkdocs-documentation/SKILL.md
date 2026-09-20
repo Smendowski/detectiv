@@ -4,11 +4,18 @@ description: Use when creating or reviewing MkDocs pages, public Python docstrin
 license: MIT
 compatibility: OpenCode and agents supporting the SKILL.md standard
 metadata:
-  version: "1"
+  version: "1.2"
   tags: "mkdocs, documentation, python, api-reference"
 ---
 
 # MkDocs Documentation
+
+## Scope
+
+Accept a target file or directory as the skill argument. Limit the review and
+documentation changes to that scope, its public API, and directly related
+tests and documentation. If no target is provided, ask for one before making
+changes.
 
 Create documentation with one owner for each fact:
 
@@ -50,6 +57,16 @@ Document every public class, function, method, and configuration dataclass.
   existing MkDocs setup and confirming the desired public surface.
 - Never rely on narrative documentation to describe every argument; the API
   reference is the source of truth for signatures and contract details.
+- Keep narrative navigation topic-oriented and API navigation aligned with the
+  public source-package hierarchy; do not make users choose between duplicate
+  conceptual and generated pages.
+- Generate one reference page per cohesive source module when rendering a
+  package facade would expose many unrelated classes and methods on one page.
+- Use nested navigation only for real source-package groupings. Avoid generic
+  labels such as `Overview`; use a landing page only when it contains a useful
+  map, orientation, or workflow rather than a duplicate generated reference.
+- Keep navigation shallow enough to scan on desktop and mobile. Prefer a small
+  number of module pages over deeply nested package landing pages.
 
 ## Validation
 

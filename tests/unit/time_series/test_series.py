@@ -35,6 +35,15 @@ def test_series_owns_read_only_data() -> None:
     assert not series.values.flags.writeable
 
 
+def test_series_rejects_values_that_overflow_during_normalization() -> None:
+    if np.finfo(np.longdouble).max <= np.finfo(np.float64).max:
+        pytest.skip("longdouble has no wider range than float64 on this platform")
+    values = np.array([np.longdouble(np.finfo(np.float64).max) * 2])
+
+    with pytest.raises(ValueError, match="remain finite"):
+        TimeSeries(values)
+
+
 @pytest.mark.parametrize(
     ("values", "labels", "message"),
     [
@@ -94,6 +103,12 @@ def test_invalid_temporal_split_is_rejected(
 ) -> None:
     with pytest.raises(ValueError):
         TimeSeries(np.arange(6)).split(train_end, validation_end)
+
+
+@pytest.mark.parametrize("train_end", [2.5, True])
+def test_temporal_split_requires_an_integral_train_boundary(train_end: object) -> None:
+    with pytest.raises(ValueError, match="train_end must be an integer"):
+        TimeSeries(np.arange(6)).split(train_end)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("value", [2.5, True])

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from detectiv.time_series import TimeSeries, TimeSeriesDataset
 from detectiv.time_series.preprocessing import MinMaxScaling
@@ -41,3 +42,29 @@ def test_min_max_scaling_fits_training_data_and_does_not_clip_test_values() -> N
     assert test["series"].labels is not None
     assert scaled_test["series"].labels is not None
     np.testing.assert_array_equal(scaled_test["series"].labels, test["series"].labels)
+
+
+def test_min_max_scaling_rejects_reordered_named_features() -> None:
+    train = TimeSeriesDataset(
+        "train",
+        {
+            "series": TimeSeries(
+                np.array([[0.0, 10.0], [10.0, 30.0]]),
+                feature_names=("first", "second"),
+                series_id="series",
+            )
+        },
+    )
+    reordered = TimeSeriesDataset(
+        "test",
+        {
+            "series": TimeSeries(
+                np.array([[50.0, 20.0]]),
+                feature_names=("second", "first"),
+                series_id="series",
+            )
+        },
+    )
+
+    with pytest.raises(ValueError, match="feature names"):
+        MinMaxScaling().fit(train).transform(reordered)

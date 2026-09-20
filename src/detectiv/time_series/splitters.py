@@ -10,6 +10,8 @@ from detectiv.time_series.split import TemporalSplit
 
 @dataclass(frozen=True)
 class TemporalBoundary:
+    """Exclusive training and optional validation boundaries for one series."""
+
     train_end: int
     validation_end: int | None = None
 
@@ -30,6 +32,8 @@ class TemporalBoundary:
 
 @dataclass(frozen=True)
 class TemporalHoldout:
+    """Hold out a trailing test segment and derive its validation boundary."""
+
     test_start: int
     validation_fraction: float
 
@@ -42,6 +46,7 @@ class TemporalHoldout:
         object.__setattr__(self, "test_start", test_start)
 
     def boundary(self) -> TemporalBoundary:
+        """Return the concrete temporal boundary represented by this holdout rule."""
         validation_length = round(self.test_start * self.validation_fraction)
         validation_length = min(max(validation_length, 1), self.test_start - 1)
         return TemporalBoundary(
@@ -51,15 +56,24 @@ class TemporalHoldout:
 
 
 class TemporalSplitter:
+    """Split every dataset series according to an explicit per-series temporal rule."""
+
     def __init__(
         self,
         rules: Mapping[str, TemporalBoundary | TemporalHoldout],
     ) -> None:
+        """Create a splitter from non-empty rules keyed by series ID."""
         if not rules:
             raise ValueError("boundaries must not be empty")
         self.rules = dict(rules)
 
     def split(self, dataset: TimeSeriesDataset) -> TemporalSplit[TimeSeriesDataset]:
+        """Split a dataset while preserving series IDs and metadata.
+
+        Raises:
+            ValueError: If rules do not exactly match dataset series IDs or validation
+                is configured for only some series.
+        """
         if set(dataset.series_ids) != set(self.rules):
             raise ValueError("boundaries must match dataset series IDs")
 

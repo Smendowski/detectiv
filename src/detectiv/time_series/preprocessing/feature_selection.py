@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 
 from detectiv.time_series import TimeSeries, TimeSeriesDataset
@@ -5,13 +7,22 @@ from detectiv.time_series.preprocessing.base import TimeSeriesPreprocessor
 
 
 class ConstantFeatureRemoval(TimeSeriesPreprocessor):
+    """Remove features whose pooled training range is within a configured tolerance."""
+
     def __init__(self, *, tolerance: float = 0.0) -> None:
+        """Create an unfitted selector with a finite, non-negative range tolerance."""
         if not np.isfinite(tolerance) or tolerance < 0:
             raise ValueError("tolerance must be finite and non-negative")
         self.tolerance = tolerance
         self._mask: np.ndarray | None = None
+        self._feature_names: tuple[str, ...] | None = None
 
-    def fit(self, train: TimeSeriesDataset) -> "ConstantFeatureRemoval":
+    def fit(self, train: TimeSeriesDataset) -> ConstantFeatureRemoval:
+        """Fit a retained-feature mask from all training-series timesteps.
+
+        Raises:
+            ValueError: If every feature is constant within the configured tolerance.
+        """
         values = tuple(train[series_id].values for series_id in train.series_ids)
         n_features = values[0].shape[1]
         if any(series.shape[1] != n_features for series in values):
@@ -20,13 +31,22 @@ class ConstantFeatureRemoval(TimeSeriesPreprocessor):
         if not np.any(mask):
             raise ValueError("constant-feature removal would remove every feature")
         self._mask = mask
+        self._feature_names = train[train.series_ids[0]].feature_names
         return self
 
     def transform(self, dataset: TimeSeriesDataset) -> TimeSeriesDataset:
+        """Remove training-constant features from a schema-compatible dataset.
+
+        Raises:
+            RuntimeError: If called before fitting.
+            ValueError: If feature names differ from the fitted dataset.
+        """
         if self._mask is None:
             raise RuntimeError(
                 "ConstantFeatureRemoval must be fitted before transforming"
             )
+        if dataset[dataset.series_ids[0]].feature_names != self._feature_names:
+            raise ValueError("dataset feature names do not match fitted data")
         return TimeSeriesDataset(
             dataset.dataset_id,
             {
