@@ -6,12 +6,12 @@ from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Unpack
 
 import numpy as np
 import torch
 
-from detectiv.callbacks.base import BaseCallback
-from detectiv.callbacks.mlflow import MlflowCallback
+from detectiv.callbacks.tracking.mlflow import MlflowCallback, MlflowOptions
 from detectiv.runs import RunArtifactWriter, TrainingEpochEvent
 from detectiv.scenarios.results import ReconstructionScenarioResult
 
@@ -28,22 +28,23 @@ class ReconstructionMlflowModelLogging:
             raise ValueError("MLflow model names must not be empty")
 
 
-class ReconstructionMlflowCallback(BaseCallback[ReconstructionScenarioResult]):
-    """Publish reconstruction-specific MLflow metrics and artifacts."""
+class ReconstructionMlflowCallback(MlflowCallback[ReconstructionScenarioResult]):
+    """Extend generic MLflow tracking with reconstruction-specific outputs."""
 
     def __init__(
         self,
-        tracking: MlflowCallback[ReconstructionScenarioResult],
+        experiment_name: str = "experiments",
         *,
         report_metrics_provider: Callable[[], Mapping[str, object]] | None = None,
         log_training_curve: bool = True,
         model_logging: ReconstructionMlflowModelLogging | None = None,
         model: torch.nn.Module | None = None,
         input_example: np.ndarray | None = None,
+        **tracking_options: Unpack[MlflowOptions],
     ) -> None:
         if model_logging is not None and (model is None or input_example is None):
             raise ValueError("model logging requires model and input_example")
-        self._tracking = tracking
+        super().__init__(experiment_name, **tracking_options)
         self._report_metrics_provider = report_metrics_provider
         self._log_training_curve = log_training_curve
         self._model_logging = model_logging
@@ -65,10 +66,10 @@ class ReconstructionMlflowCallback(BaseCallback[ReconstructionScenarioResult]):
             }
         )
         metrics["training.epoch_seconds"] = event.elapsed_seconds
-        self._tracking.log_metrics(metrics, step=event.epoch)
+        self.log_metrics(metrics, step=event.epoch)
 
     def on_run_finished(self, result: ReconstructionScenarioResult) -> None:
-        self._tracking.set_tags(
+        self.set_tags(
             {
                 "training.epochs": str(len(result.training_losses)),
                 "training.best_epoch": str(result.training.best_epoch),
@@ -83,6 +84,7 @@ class ReconstructionMlflowCallback(BaseCallback[ReconstructionScenarioResult]):
             self._log_curve(result)
         if self._model_logging is not None:
             self._log_model()
+        super().on_run_finished(result)
 
     def _log_curve(self, result: ReconstructionScenarioResult) -> None:
         pyplot = importlib.import_module("matplotlib.pyplot")
@@ -99,7 +101,7 @@ class ReconstructionMlflowCallback(BaseCallback[ReconstructionScenarioResult]):
         axis.set(xlabel="Epoch", ylabel="Reconstruction loss")
         axis.legend()
         figure.tight_layout()
-        self._tracking.log_figure(figure, "detectiv/training_loss.png")
+        self.log_figure(figure, "detectiv/training_loss.png")
         pyplot.close(figure)
 
     def _log_report_bundle(self, result: ReconstructionScenarioResult) -> None:
@@ -109,12 +111,12 @@ class ReconstructionMlflowCallback(BaseCallback[ReconstructionScenarioResult]):
             artifacts = RunArtifactWriter(
                 Path(directory),
                 provenance={
-                    "configuration": self._tracking.configuration,
-                    "dataset": self._tracking.dataset,
-                    "parameters": self._tracking.parameters,
+                    "configuration": self.configuration,
+                    "dataset": self.dataset,
+                    "parameters": self.parameters,
                 },
             ).write(result, metrics=self._report_metrics_provider())
-            self._tracking.log_artifacts(artifacts.manifest.parent)
+            self.log_artifacts(artifacts.manifest.parent)
 
     def _log_model(self) -> None:
         if (

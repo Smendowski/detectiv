@@ -1,6 +1,6 @@
 # Callback MLflow API
 
-::: detectiv.callbacks.mlflow
+::: detectiv.callbacks.tracking.mlflow
 
 `MlflowCallback` is result-independent. It publishes
 common setup metadata, a Detectiv run ID, lifecycle tags, caller metrics, and

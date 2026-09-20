@@ -6,14 +6,14 @@ import numpy as np
 import pytest
 import torch
 
-from detectiv.callbacks import MlflowCallback
-from detectiv.models.autoencoders import TrainingHistory
-from detectiv.runs import RunContext, RunIdentity, TrainingEpochEvent
-from detectiv.scenarios import (
+from detectiv.callbacks import (
+    MlflowCallback,
     ReconstructionMlflowCallback,
     ReconstructionMlflowModelLogging,
-    ReconstructionScenarioResult,
 )
+from detectiv.models.autoencoders import TrainingHistory
+from detectiv.runs import RunContext, RunIdentity, TrainingEpochEvent
+from detectiv.scenarios import ReconstructionScenarioResult
 
 
 class FakeRunContext:
@@ -32,6 +32,7 @@ class FakeMlflow(ModuleType):
     def __init__(self) -> None:
         super().__init__("mlflow")
         self.metrics: list[tuple[str, float, int]] = []
+        self.parameters: dict[str, object] = {}
         self.tags: dict[str, str] = {}
         self.artifacts: list[tuple[str, str]] = []
         self.figures: list[str] = []
@@ -41,13 +42,16 @@ class FakeMlflow(ModuleType):
         pass
 
     def start_run(self, **kwargs: object) -> FakeRunContext:
+        tags = kwargs.get("tags")
+        if isinstance(tags, Mapping):
+            self.tags.update({str(name): str(value) for name, value in tags.items()})
         return self.run
 
     def active_run(self) -> FakeRunContext:
         return self.run
 
     def log_params(self, parameters: Mapping[str, object]) -> None:
-        pass
+        self.parameters.update(parameters)
 
     def log_metrics(self, metrics: Mapping[str, float], step: int) -> None:
         self.metrics.extend((name, value, step) for name, value in metrics.items())
@@ -83,21 +87,17 @@ def _result() -> ReconstructionScenarioResult:
 
 
 def test_reconstruction_callbacks_compose_explicitly(mlflow: FakeMlflow) -> None:
-    tracking: MlflowCallback[ReconstructionScenarioResult] = MlflowCallback("benchmark")
-    callbacks = (
-        tracking,
-        ReconstructionMlflowCallback(tracking, log_training_curve=False),
+    callback = ReconstructionMlflowCallback(
+        "benchmark",
+        log_training_curve=False,
+        parameters={"trainer": {"epochs": 1}},
+        tags={"study": "baseline"},
     )
-
-    assert [callback.name for callback in callbacks] == [
-        "mlflow",
-        "mlflow_reconstruction",
-    ]
-    tracking.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
-    tracking.on_run_started()
-    callbacks[1].on_epoch_finished(TrainingEpochEvent(0, 0.5, 0.4, (1e-3,), 2.0))
-    callbacks[1].on_run_finished(_result())
-    tracking.on_run_closed()
+    callback.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
+    callback.on_run_started()
+    callback.on_epoch_finished(TrainingEpochEvent(0, 0.5, 0.4, (1e-3,), 2.0))
+    callback.on_run_finished(_result())
+    callback.on_run_closed()
 
     assert mlflow.metrics == [
         ("training.loss", 0.5, 0),
@@ -107,6 +107,8 @@ def test_reconstruction_callbacks_compose_explicitly(mlflow: FakeMlflow) -> None
     ]
     assert mlflow.tags["training.epochs"] == "1"
     assert mlflow.tags["detectiv.scenario_type"] == "reconstruction"
+    assert mlflow.parameters == {"trainer.epochs": 1}
+    assert mlflow.tags["study"] == "baseline"
 
 
 def test_generic_tracker_accepts_a_reconstruction_result_without_extensions(
@@ -133,19 +135,18 @@ def test_reconstruction_extension_logs_a_model_with_its_semantic_type(
     pytorch.log_model = lambda model, **kwargs: logged.update(kwargs)  # type: ignore[attr-defined]
     monkeypatch.setitem(__import__("sys").modules, "mlflow.models", models)
     monkeypatch.setitem(__import__("sys").modules, "mlflow.pytorch", pytorch)
-    tracking: MlflowCallback[ReconstructionScenarioResult] = MlflowCallback("benchmark")
     callback = ReconstructionMlflowCallback(
-        tracking,
+        "benchmark",
         log_training_curve=False,
         model_logging=ReconstructionMlflowModelLogging(),
         model=torch.nn.Identity(),
         input_example=np.zeros((1, 2, 2)),
     )
 
-    tracking.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
-    tracking.on_run_started()
+    callback.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
+    callback.on_run_started()
     callback.on_run_finished(_result())
-    tracking.on_run_closed()
+    callback.on_run_closed()
 
     assert logged["model_type"] == "reconstruction"
 
@@ -167,15 +168,14 @@ def test_reconstruction_extension_logs_curve_and_report_bundle(
     pyplot.subplots = lambda: (figure, axis)  # type: ignore[attr-defined]
     pyplot.close = lambda value: None  # type: ignore[attr-defined]
     monkeypatch.setitem(__import__("sys").modules, "matplotlib.pyplot", pyplot)
-    tracking: MlflowCallback[ReconstructionScenarioResult] = MlflowCallback("benchmark")
     callback = ReconstructionMlflowCallback(
-        tracking, report_metrics_provider=lambda: {"test": {"score": 0.9}}
+        "benchmark", report_metrics_provider=lambda: {"test": {"score": 0.9}}
     )
 
-    tracking.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
-    tracking.on_run_started()
+    callback.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
+    callback.on_run_started()
     callback.on_run_finished(_result())
-    tracking.on_run_closed()
+    callback.on_run_closed()
 
     assert mlflow.figures == ["detectiv/training_loss.png"]
     assert len(mlflow.artifacts) == 1
@@ -185,6 +185,6 @@ def test_reconstruction_extension_logs_curve_and_report_bundle(
 def test_reconstruction_extension_requires_complete_model_configuration() -> None:
     with pytest.raises(ValueError, match="model and input_example"):
         ReconstructionMlflowCallback(
-            MlflowCallback("benchmark"),
+            "benchmark",
             model_logging=ReconstructionMlflowModelLogging(),
         )

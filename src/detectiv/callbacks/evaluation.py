@@ -8,7 +8,11 @@ from typing import Protocol
 import numpy as np
 
 from detectiv.callbacks.base import BaseCallback
-from detectiv.scenarios.results import ReconstructionScenarioResult
+
+
+class _PointScoreResult(Protocol):
+    @property
+    def point_scores(self) -> Mapping[str, Mapping[str, Mapping[str, np.ndarray]]]: ...
 
 
 class _PointScoreEvaluator(Protocol):
@@ -76,7 +80,7 @@ class EvaluationReport:
         )
 
 
-class ReconstructionEvaluationCallback(BaseCallback[ReconstructionScenarioResult]):
+class EvaluationCallback[T: _PointScoreResult](BaseCallback[T]):
     """Evaluate propagated point scores against immutable binary labels.
 
     Args:
@@ -113,7 +117,7 @@ class ReconstructionEvaluationCallback(BaseCallback[ReconstructionScenarioResult
         """Clear metrics from any preceding run."""
         self.metrics = None
 
-    def on_run_finished(self, result: ReconstructionScenarioResult) -> None:
+    def on_run_finished(self, result: T) -> None:
         """Evaluate every result point-score array against its series labels.
 
         Each propagation must define exactly the configured label series. Point

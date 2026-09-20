@@ -61,7 +61,7 @@ metadata, and `visualize=True` when its optional visualization dependencies are
 available. Its writer rejects an existing non-empty destination unless
 `overwrite=True`.
 
-Use `ReconstructionEvaluationCallback` when test labels are available and you need metrics
+Use `EvaluationCallback` when test labels are available and you need metrics
 for every scoring-plan, propagation, and series combination. Labels must be
 non-empty one-dimensional binary arrays keyed by exactly the test series. Call
 `tracking_metrics()` only after success to obtain per-plan and per-propagation

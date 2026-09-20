@@ -12,7 +12,6 @@ from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.protocols import RandomHoldout, SemiSupervisedTraining
 from detectiv.runs import ReproducibilitySettings, RunArtifacts, RunArtifactWriter
 from detectiv.scenarios import (
-    ReconstructionEvaluationCallback,
     ReconstructionScenario,
     ReconstructionScenarioResult,
 )

@@ -8,10 +8,26 @@ import subprocess
 import sys
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from detectiv.callbacks.base import BaseCallback
 from detectiv.runs import RunContext
+
+
+class MlflowOptions(TypedDict, total=False):
+    """Optional generic configuration shared by MLflow tracking callbacks."""
+
+    run_name: str | None
+    parameters: Mapping[str, object] | None
+    configuration: Mapping[str, object] | None
+    dataset: Mapping[str, object] | None
+    tags: Mapping[str, str] | None
+    description: str | None
+    metrics_provider: Callable[[], Mapping[str, object]] | None
+    artifact_directories: Mapping[Path, str] | None
+    nested: bool
+    tracking_uri: str | None
+    log_system_metrics: bool
 
 
 class MlflowCallback[T](BaseCallback[T]):
