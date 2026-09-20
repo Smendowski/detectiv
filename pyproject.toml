@@ -64,6 +64,7 @@ lint = [
 ]
 docs = [
   "mkdocs-material>=9.7",
+  "mkdocstrings[python]>=1.0",
 ]
 dev = [
   { include-group = "test" },

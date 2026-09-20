@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+.DS_Store
 *.py[codz]
 *$py.class
 
@@ -51,6 +52,17 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+artifacts/
+data/*
+!data/.gitkeep
+!data/TSB-AD-U/
+data/TSB-AD-U/*
+!data/TSB-AD-U/.gitkeep
+!data/TSB-AD-M/
+data/TSB-AD-M/*
+!data/TSB-AD-M/.gitkeep
+mlruns/
+mlflow-data/
 
 # Translations
 *.mo
@@ -215,3 +227,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# OpenCode
+opencode.json
+.opencode/
+
+# OpenSpec
+openspec/

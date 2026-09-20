@@ -13,6 +13,16 @@ theme:
     - search.suggest
     - search.highlight
 
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+
 markdown_extensions:
   - admonition
   - pymdownx.highlight:
@@ -30,5 +40,15 @@ nav:
   - Installation: installation.md
   - Design: design.md
   - First Experiment: first-experiment.md
-  - API: api.md
+  - Experiment Surfaces: experiment-surfaces.md
+  - Benchmarks:
+      - Overview: benchmarks/index.md
+      - TSB-AD: benchmarks/tsb-ad.md
+  - API:
+      - Overview: api/index.md
+      - Benchmarks:
+          - Overview: api/benchmarks/index.md
+          - TSB-AD: api/benchmarks/tsb-ad.md
+      - Callbacks: api/callbacks.md
+      - Runs: api/runs.md
   - Development: development.md

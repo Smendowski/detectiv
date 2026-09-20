@@ -1,6 +1,7 @@
 import sys
 from dataclasses import dataclass
 from importlib import import_module, util
+from operator import index
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any
@@ -14,7 +15,18 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-class TSBADRepository:
+class TSBADAdapter:
+    """Access the upstream TSB-AD package from a checked source directory.
+
+    Args:
+        source_directory: Directory containing the importable ``TSB_AD``
+            package. The resolved absolute path is retained.
+
+    Raises:
+        FileNotFoundError: If the directory does not contain ``TSB_AD`` and
+            its ``__init__.py`` file.
+    """
+
     source_directory: Path
 
     def __post_init__(self) -> None:
@@ -31,7 +43,25 @@ class TSBADRepository:
         object.__setattr__(self, "source_directory", source_directory)
 
     def acf_window(self, series: TimeSeries, *, feature_index: int = 0) -> int:
-        if not 0 <= feature_index < series.n_features:
+        """Calculate TSB-AD's rank-one autocorrelation window for one feature.
+
+        Args:
+            series: Time series containing the feature to analyze.
+            feature_index: Zero-based feature index. Defaults to ``0``.
+
+        Returns:
+            Window length returned by the upstream rank-one autocorrelation routine.
+
+        Raises:
+            ValueError: If ``feature_index`` is not a non-negative integer,
+                does not identify a feature, or the series has fewer than two
+                observations.
+            ImportError: If the upstream package cannot be loaded.
+            RuntimeError: If ``TSB_AD`` is already loaded from another source
+                directory.
+        """
+        feature_index = _nonnegative_index(feature_index, "feature_index")
+        if feature_index >= series.n_features:
             raise ValueError("feature_index must identify a feature in the series")
         if series.n_timesteps < 2:
             raise ValueError("series must contain at least two observations")
@@ -46,6 +76,21 @@ class TSBADRepository:
         version: str = "opt",
         thresholds: int = 250,
     ) -> "TSBADEvaluator":
+        """Create a metric evaluator configured for this TSB-AD source.
+
+        Args:
+            sliding_window: Positive integral window length passed to TSB-AD.
+            version: Upstream metric version. Defaults to ``"opt"``.
+            thresholds: Positive integral number of thresholds to evaluate.
+                Defaults to ``250``.
+
+        Returns:
+            Evaluator configured with this adapter and the supplied metric parameters.
+
+        Raises:
+            ValueError: If ``sliding_window`` or ``thresholds`` is not a
+                positive integer.
+        """
         from detectiv.benchmarks.tsb_ad.evaluation import TSBADEvaluator
 
         return TSBADEvaluator(
@@ -116,3 +161,15 @@ def _package_directory(package: ModuleType) -> Path | None:
     for location in locations:
         return Path(location).resolve()
     return None
+
+
+def _nonnegative_index(value: int, name: str) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"{name} must be an integer")
+    try:
+        value = index(value)
+    except TypeError as error:
+        raise ValueError(f"{name} must be an integer") from error
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative")
+    return value

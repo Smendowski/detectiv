@@ -1,3 +1,4 @@
+from detectiv.benchmarks.tsb_ad.adapter import TSBADAdapter
 from detectiv.benchmarks.tsb_ad.collection import (
     TSBADCollection,
     TSBADCollectionLoader,
@@ -7,13 +8,12 @@ from detectiv.benchmarks.tsb_ad.evaluation import (
     TSBADEvaluator,
 )
 from detectiv.benchmarks.tsb_ad.loader import TSBADCsvLoader
-from detectiv.benchmarks.tsb_ad.repository import TSBADRepository
 
 __all__ = [
+    "TSBADAdapter",
     "TSBADCollection",
     "TSBADCollectionLoader",
     "TSBADCsvLoader",
     "TSBADDataset",
     "TSBADEvaluator",
-    "TSBADRepository",
 ]

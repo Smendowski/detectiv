@@ -1,5 +1,6 @@
 import re
 from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -14,12 +15,21 @@ from detectiv.time_series import (
 
 
 class TSBADCollection(StrEnum):
+    """Identify the TSB-AD collection by its expected dimensionality."""
+
     UNIVARIATE = "TSB-AD-U"
     MULTIVARIATE = "TSB-AD-M"
 
 
 @dataclass(frozen=True)
 class TSBADDataset:
+    """Pair an immutable TSB-AD dataset with its temporal split configuration.
+
+    Args:
+        dataset: Loaded time-series dataset for one source dataset.
+        splitter: Per-series temporal boundaries for splitting the dataset.
+    """
+
     dataset: TimeSeriesDataset
     splitter: TemporalSplitter
 
@@ -32,6 +42,17 @@ class _SeriesFile:
 
 
 class TSBADCollectionLoader:
+    """Load TSB-AD collections stored beneath a local data directory.
+
+    Args:
+        data_directory: Directory containing one subdirectory for each TSB-AD
+            collection.
+
+    Raises:
+        FileNotFoundError: If ``data_directory`` does not exist or is not a
+            directory.
+    """
+
     def __init__(self, data_directory: Path) -> None:
         if not data_directory.is_dir():
             raise FileNotFoundError(
@@ -41,21 +62,85 @@ class TSBADCollectionLoader:
         self._csv_loader = TSBADCsvLoader()
 
     def load_collection(self, collection: TSBADCollection) -> tuple[TSBADDataset, ...]:
+        """Load every source dataset in a collection.
+
+        Args:
+            collection: TSB-AD collection to load.
+
+        Returns:
+            Eagerly materialized datasets in deterministic source filename order.
+
+        Raises:
+            FileNotFoundError: If the collection directory does not exist.
+            ValueError: If the collection is empty, a filename or CSV is
+                invalid, a train boundary is outside its series, or a series
+                does not match the collection's required dimensionality.
+        """
+        return tuple(self.iter_collection(collection))
+
+    def iter_collection(self, collection: TSBADCollection) -> Iterator[TSBADDataset]:
+        """Yield source datasets from a collection in deterministic order.
+
+        Args:
+            collection: TSB-AD collection to iterate.
+
+        Yields:
+            One dataset at a time in deterministic source filename order.
+
+        Raises:
+            FileNotFoundError: If the collection directory does not exist.
+            ValueError: If the collection is empty, a filename or CSV is
+                invalid, a train boundary is outside its series, or a series
+                does not match the collection's required dimensionality.
+
+        Notes:
+            CSV files are loaded only when their dataset is requested from the
+            iterator; collection filenames are discovered before the first
+            item is yielded.
+        """
         grouped: dict[str, list[_SeriesFile]] = defaultdict(list)
         for item in self._collection_files(collection):
             grouped[item.dataset_name].append(item)
-        return tuple(
-            self._dataset(collection, dataset_name, series_files)
-            for dataset_name, series_files in grouped.items()
-        )
+
+        for dataset_name, series_files in grouped.items():
+            yield self._dataset(collection, dataset_name, series_files)
 
     def dataset_names(self, collection: TSBADCollection) -> tuple[str, ...]:
+        """Return the source dataset names available in a collection.
+
+        Args:
+            collection: TSB-AD collection to inspect.
+
+        Returns:
+            Unique names in deterministic source filename order.
+
+        Raises:
+            FileNotFoundError: If the collection directory does not exist.
+            ValueError: If the collection is empty or contains an invalid
+                filename.
+        """
         files = self._collection_files(collection)
         return tuple(dict.fromkeys(item.dataset_name for item in files))
 
     def load_dataset(
         self, collection: TSBADCollection, dataset_name: str
     ) -> TSBADDataset:
+        """Load one named source dataset from a collection.
+
+        Args:
+            collection: TSB-AD collection containing the source dataset.
+            dataset_name: Exact source dataset name encoded in its CSV
+                filenames.
+
+        Returns:
+            Requested dataset with temporal boundaries parsed from CSV filenames.
+
+        Raises:
+            FileNotFoundError: If the collection directory does not exist.
+            ValueError: If ``dataset_name`` is empty or absent, the collection
+                is empty, a filename or CSV is invalid, a train boundary is
+                outside its series, or a series has the wrong dimensionality.
+        """
         if not dataset_name:
             raise ValueError("TSB-AD dataset name must not be empty")
         files = tuple(
@@ -82,6 +167,7 @@ class TSBADCollectionLoader:
             raise ValueError(
                 f"TSB-AD collection contains no CSV files: {collection_directory}"
             )
+
         return files
 
     def _dataset(
