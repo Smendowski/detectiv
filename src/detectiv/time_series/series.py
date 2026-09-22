@@ -1,10 +1,19 @@
 from __future__ import annotations
 
-from operator import index
+from collections.abc import Mapping
+from dataclasses import dataclass, field, replace
+from types import MappingProxyType
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from detectiv.time_series.split import TemporalSplit
+from detectiv.time_series.splitters import TemporalBoundary, TemporalHoldout
+
+if TYPE_CHECKING:
+    from detectiv.time_series.preprocessing import TimeSeriesPreprocessor
+    from detectiv.time_series.windowing import WindowSpec
+    from detectiv.time_series.windowing.split import WindowedTimeSeriesSplit
 
 
 class TimeSeries:
@@ -18,6 +27,7 @@ class TimeSeries:
         feature_names: tuple[str, ...] | list[str] | None = None,
         sampling_rate: float | None = None,
         series_id: str | None = None,
+        metadata: Mapping[str, object] | None = None,
     ) -> None:
         """Create a series from finite real values.
 
@@ -27,6 +37,7 @@ class TimeSeries:
             feature_names: Optional unique names for the feature columns.
             sampling_rate: Optional positive sampling rate.
             series_id: Optional identifier retained by derived series.
+            metadata: Optional immutable provenance and descriptive metadata.
         """
         values = np.asarray(values)
         if values.ndim == 1:
@@ -77,6 +88,7 @@ class TimeSeries:
             raise ValueError("sampling_rate must be finite and positive")
         self.sampling_rate = sampling_rate
         self.series_id = series_id
+        self.metadata = MappingProxyType(dict(metadata or {}))
 
     @property
     def n_timesteps(self) -> int:
@@ -93,17 +105,21 @@ class TimeSeries:
         """Return whether the series has exactly one feature."""
         return self.n_features == 1
 
-    def split(
-        self, train_end: int, validation_end: int | None = None
-    ) -> TemporalSplit[TimeSeries]:
+    def split(self, rule: TemporalBoundary | TemporalHoldout) -> TimeSeriesSplit:
         """Split the series into chronological train, validation, and test segments.
 
+        Args:
+            rule: Concrete temporal boundary or trailing holdout rule.
+
+        Returns:
+            Chronological train, optional validation, and test series.
+
         Raises:
-            ValueError: If boundaries are not integral, ordered, and strictly internal.
+            ValueError: If the resolved boundaries are not strictly internal.
         """
-        train_end = _index_value(train_end, "train_end")
-        if validation_end is not None:
-            validation_end = _index_value(validation_end, "validation_end")
+        boundary = rule.boundary() if isinstance(rule, TemporalHoldout) else rule
+        train_end = boundary.train_end
+        validation_end = boundary.validation_end
         test_start = train_end if validation_end is None else validation_end
         if not 0 < train_end < self.n_timesteps:
             raise ValueError("train_end must lie strictly within the series")
@@ -119,7 +135,7 @@ class TimeSeries:
         if validation_end is not None:
             validation = self._segment(train_end, validation_end)
 
-        return TemporalSplit(
+        return TimeSeriesSplit(
             train=self._segment(0, train_end),
             validation=validation,
             test=self._segment(test_start, self.n_timesteps),
@@ -133,13 +149,57 @@ class TimeSeries:
             feature_names=self.feature_names,
             sampling_rate=self.sampling_rate,
             series_id=self.series_id,
+            metadata=self.metadata,
         )
 
 
-def _index_value(value: int, name: str) -> int:
-    if isinstance(value, bool):
-        raise ValueError(f"{name} must be an integer")
-    try:
-        return index(value)
-    except TypeError as error:
-        raise ValueError(f"{name} must be an integer") from error
+@dataclass(frozen=True)
+class TimeSeriesSplit(TemporalSplit[TimeSeries]):
+    """Temporal series partitions ready for optional preprocessing and windowing."""
+
+    _preprocessors: tuple[TimeSeriesPreprocessor, ...] = field(
+        default=(), repr=False, compare=False
+    )
+
+    def preprocess(self, preprocessor: TimeSeriesPreprocessor) -> TimeSeriesSplit:
+        """Append train-fitted preprocessing to this split.
+
+        Args:
+            preprocessor: Transformer to fit on the training partition later.
+
+        Returns:
+            A new immutable split stage carrying all preprocessors in declaration
+            order.
+        """
+        return replace(self, _preprocessors=(*self._preprocessors, preprocessor))
+
+    def window(
+        self,
+        *,
+        train: WindowSpec,
+        test: WindowSpec,
+        validation: WindowSpec | None = None,
+    ) -> WindowedTimeSeriesSplit:
+        """Configure independent window specifications for each partition.
+
+        Args:
+            train: Window specification for the training partition.
+            test: Window specification for the test partition.
+            validation: Optional specification for the validation partition.
+
+        Returns:
+            A windowed stage ready for projection configuration.
+        """
+        from detectiv.time_series.windowing.split import (
+            SplitWindowing,
+            WindowedTimeSeriesSplit,
+        )
+
+        return WindowedTimeSeriesSplit(
+            split=self,
+            windowing=SplitWindowing(
+                train=train,
+                validation=validation,
+                test=test,
+            ),
+        )

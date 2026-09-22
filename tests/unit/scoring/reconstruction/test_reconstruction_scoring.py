@@ -32,7 +32,8 @@ def test_window_error_collapses_the_reconstruction_error() -> None:
         image_shape=ImageShape(1, 2, 4),
         window_references=(WindowReference("series", 0, 4, 4),),
         source=ArrayImageSource(),
-        series_lengths={"series": 4},
+        series_id="series",
+        series_length=4,
     )
 
     scores = MeanSquaredWindowReconstructionError().score(

@@ -12,7 +12,11 @@ from detectiv.time_series.windowing.lengths import (
     WindowLengthStrategy,
 )
 from detectiv.time_series.windowing.reference import WindowReference
-from detectiv.time_series.windowing.split import SplitPart, SplitWindowing
+from detectiv.time_series.windowing.split import (
+    SplitPart,
+    SplitWindowing,
+    WindowedTimeSeriesSplit,
+)
 
 __all__ = [
     "ACFWindowLength",
@@ -26,5 +30,6 @@ __all__ = [
     "WindowMode",
     "WindowReference",
     "WindowSpec",
+    "WindowedTimeSeriesSplit",
     "Windower",
 ]

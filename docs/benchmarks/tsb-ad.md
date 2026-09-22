@@ -14,10 +14,10 @@ benchmark metrics. It loads TSB-AD CSV datasets directly from the local
 
 The integration separates three concerns:
 
-1. TSB-AD CSV files become typed Detectiv `TimeSeries` datasets with the
-   benchmark's predefined temporal split.
-2. `TSBADCollectionLoader` loads one named dataset directly or streams an
-   entire collection without retaining every dataset in memory.
+1. Each TSB-AD CSV becomes one independent `TSBADDataset` run unit containing
+   one `TimeSeries` and one temporal boundary.
+2. `TSBADCollectionLoader` loads one exact series or lazily streams CSV files.
+   Names such as NAB and SMD are source metadata groups used for filtering.
 3. `TSBADAdapter` calls the upstream ACF window estimator and evaluation
    metrics without exposing upstream import details to an experiment.
 
@@ -61,9 +61,9 @@ data/
 The tracked directory placeholders establish this layout, but no benchmark CSV
 data is committed to Detectiv.
 
-## 3. Load One Dataset
+## 3. Load One Series
 
-Load one named dataset for an interactive experiment or a targeted benchmark:
+Load one exact CSV series for an interactive experiment:
 
 ```python
 from pathlib import Path
@@ -71,32 +71,29 @@ from pathlib import Path
 from detectiv.benchmarks.tsb_ad import TSBADCollection, TSBADCollectionLoader
 
 loader = TSBADCollectionLoader(Path("data"))
-benchmark = loader.load_dataset(TSBADCollection.UNIVARIATE, "NAB")
+series_id = "001_NAB_id_1_Facility_tr_1007_1st_2014"
+benchmark = loader.load_series(TSBADCollection.UNIVARIATE, series_id)
 
-dataset = benchmark.dataset
-splitter = benchmark.splitter
+series = benchmark.series
+boundary = benchmark.boundary
 ```
 
-`dataset` contains all series belonging to `NAB`. `splitter` carries the
-per-series training boundaries parsed from the original TSB-AD filenames.
-
-Use the same path for a multivariate dataset:
+Discover or filter source groups without combining their files:
 
 ```python
-benchmark = loader.load_dataset(TSBADCollection.MULTIVARIATE, "SMD")
+groups = loader.source_groups(TSBADCollection.UNIVARIATE)
+for benchmark in loader.iter_collection(TSBADCollection.UNIVARIATE, source_group="NAB"):
+    inspect(benchmark.series, benchmark.boundary)
 ```
 
-## 4. Stream A Full Collection
+## 4. Stream A Collection
 
-For a complete collection, stream one logical dataset at a time. This avoids
-retaining every TSB-AD dataset in memory:
+Iteration is deterministic by filename and loads one CSV only when requested:
 
 ```python
 for benchmark in loader.iter_collection(TSBADCollection.UNIVARIATE):
-    run(benchmark.dataset, benchmark.splitter)
+    run(benchmark.series, benchmark.boundary)
 ```
-
-Use `load_collection()` only when every dataset must be resident at once.
 
 ## 5. Evaluate Point Scores
 
@@ -112,8 +109,8 @@ from detectiv.benchmarks.tsb_ad import TSBADAdapter
 from detectiv.callbacks import MetricsCallback
 
 adapter = TSBADAdapter(Path("external/tsb-ad"))
-source_series = dataset["001_NAB_id_1_Facility_tr_1007_1st_2014"]
-window = adapter.acf_window(source_series)
+split = series.split(boundary)
+window = adapter.acf_window(split.train)
 evaluator = adapter.evaluator(sliding_window=window)
 scenario = ReconstructionScenario(
     # ...
@@ -126,16 +123,22 @@ print(artifacts.manifest)
 print(artifacts.point_scores)
 ```
 
-Each report score series and its labels must have the same one-dimensional
+Detectiv deliberately fits preprocessing, projection, and the model on the train
+prefix only. Compute ACF from `split.train`, then score and evaluate only the
+held-out test suffix. This differs from upstream TSB-AD, which scores and
+evaluates the full series including the training prefix. Detectiv results are
+therefore not comparable to the upstream TSB-AD leaderboard.
+
+Each report score array and its labels must have the same one-dimensional
 shape. Labels must be binary and include both normal and anomalous points,
 matching the requirements of the upstream metrics. The callback stores each
-result as `<plan>.<propagation>.<series>.<metric>` in `report.metrics`.
+result as `<plan>.<propagation>.<metric>` in `report.metrics`.
 
 ## Integration Boundaries
 
 - `TSBADCsvLoader` reads one benchmark CSV into a `TimeSeries`.
-- `TSBADCollectionLoader` understands the TSB-AD collection layout, groups
-  series, and produces the temporal split.
+- `TSBADCollectionLoader` understands filenames, source-group metadata, and
+  temporal boundaries without grouping files into training datasets.
 - `TSBADAdapter` owns the dependency on the upstream Python package and its
   metric functions.
 

@@ -18,14 +18,10 @@ from detectiv.scoring import (
     ReconstructionScoringPlan,
     UniformPointAssignment,
 )
-from detectiv.time_series import (
-    TemporalBoundary,
-    TemporalSplitter,
-    TimeSeries,
-    TimeSeriesDataset,
-)
+from detectiv.time_series import TemporalBoundary, TimeSeries
+from detectiv.time_series.preprocessing import MinMaxScaling
 from detectiv.time_series.windowing import WindowSpec
-from detectiv.ts2i import ImagePreparation, MaterializationSettings
+from detectiv.ts2i import MaterializationSettings
 from detectiv.ts2i.channelization import IdentityChannelization
 from detectiv.ts2i.projection import FixedProjectionStrategy, ProjectionScheme
 from detectiv.ts2i.transformations import StateGrid
@@ -53,15 +49,14 @@ def main() -> None:
     labels[300:324] = True
     values[labels] += 2.0
 
-    series_id = "synthetic"
-    series = TimeSeries(values, labels=labels, series_id=series_id)
-    dataset = TimeSeriesDataset(
-        "synthetic",
-        {series_id: series},
-    )
     images = (
-        ImagePreparation(dataset)
-        .split(TemporalSplitter({series_id: TemporalBoundary(train_end=TRAIN_END)}))
+        TimeSeries(
+            series_id="synthetic",
+            values=values,
+            labels=labels,
+        )
+        .split(TemporalBoundary(train_end=TRAIN_END))
+        .preprocess(MinMaxScaling())
         .window(
             train=WindowSpec(WINDOW_SIZE, stride=TRAIN_STRIDE),
             test=WindowSpec(WINDOW_SIZE, stride=TEST_STRIDE),

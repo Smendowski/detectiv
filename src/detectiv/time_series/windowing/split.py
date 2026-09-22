@@ -1,6 +1,15 @@
-from enum import StrEnum
+from __future__ import annotations
 
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import TYPE_CHECKING
+
+from detectiv.time_series.series import TimeSeriesSplit
 from detectiv.time_series.windowing.core import WindowSpec
+
+if TYPE_CHECKING:
+    from detectiv.ts2i.preparation import ProjectedImageStage
+    from detectiv.ts2i.projection import ProjectionStrategy
 
 
 class SplitPart(StrEnum):
@@ -45,3 +54,24 @@ class SplitWindowing:
         if part is SplitPart.TEST:
             return self.test
         raise AssertionError("all split parts are handled")
+
+
+@dataclass(frozen=True)
+class WindowedTimeSeriesSplit:
+    """Temporal series split with configured per-partition windows."""
+
+    split: TimeSeriesSplit
+    windowing: SplitWindowing
+
+    def project(self, projection: ProjectionStrategy) -> ProjectedImageStage:
+        """Transition to a projected image stage.
+
+        Args:
+            projection: Strategy to fit using the training partition.
+
+        Returns:
+            Projected stage that can build, inspect, or materialize images.
+        """
+        from detectiv.ts2i.preparation import ProjectedImageStage
+
+        return ProjectedImageStage(source=self, projection=projection)

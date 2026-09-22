@@ -7,6 +7,7 @@ from PIL import Image
 
 from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.images.io import ImageArtifactLabel, ImageFormat
+from detectiv.images.io.writers.images import IMAGE_ARTIFACT_SCHEMA_VERSION
 from detectiv.time_series import TemporalSplit
 from detectiv.time_series.windowing import WindowReference
 
@@ -47,6 +48,8 @@ class ImageFolderReader:
             ValueError: If metadata, sidecars, or manifest rows are invalid.
         """
         metadata = self._read_metadata()
+        if metadata.get("schema_version") != IMAGE_ARTIFACT_SCHEMA_VERSION:
+            raise ValueError("unsupported image artifact schema")
         image_format = self._image_format(metadata.get("format"))
         image_shape = self._image_shape(metadata.get("image_shape"))
         if image_format is ImageFormat.PNG and image_shape.channels != 3:
@@ -67,7 +70,7 @@ class ImageFolderReader:
                 dataset_ids,
                 image_shape,
                 image_format,
-                self._series_lengths(metadata.get("series_lengths"), split),
+                self._series(metadata.get("series"), split),
                 self._point_labels(metadata.get("point_labels"), split),
                 self._dataset_metadata(dataset_metadata, split),
             )
@@ -155,8 +158,8 @@ class ImageFolderReader:
         dataset_ids: dict[object, object],
         image_shape: ImageShape,
         image_format: ImageFormat,
-        series_lengths: dict[str, int] | None,
-        point_labels: dict[str, np.ndarray] | None,
+        series: tuple[str, int],
+        point_labels: np.ndarray | None,
         metadata: dict[str, object],
     ) -> ImageDataset:
         dataset_id = dataset_ids.get(split)
@@ -191,27 +194,27 @@ class ImageFolderReader:
             image_shape=image_shape,
             window_references=references,
             source=ImageFolderSource(tuple(paths), image_format),
+            series_id=series[0],
+            series_length=series[1],
             window_labels=window_labels,
-            series_lengths=series_lengths,
             point_labels=point_labels,
             metadata=metadata,
         )
 
     @staticmethod
-    def _series_lengths(value: object, split: str) -> dict[str, int] | None:
-        if value is None:
-            return None
+    def _series(value: object, split: str) -> tuple[str, int]:
         if not isinstance(value, dict):
-            raise ValueError("artifact metadata must define series lengths by split")
-        lengths = value.get(split)
-        if not isinstance(lengths, dict):
-            raise ValueError(f"artifact metadata has no series lengths for {split}")
-        if any(
-            not isinstance(series_id, str) or not isinstance(length, int)
-            for series_id, length in lengths.items()
-        ):
-            raise ValueError("artifact series lengths must map IDs to integers")
-        return lengths
+            raise ValueError("artifact metadata must define series by split")
+        series = value.get(split)
+        if not isinstance(series, dict):
+            raise ValueError(f"artifact metadata has no series for {split}")
+        series_id = series.get("id")
+        length = series.get("length")
+        if not isinstance(series_id, str) or not isinstance(length, int):
+            raise ValueError(
+                "artifact series must define a string ID and integer length"
+            )
+        return series_id, length
 
     @staticmethod
     def _dataset_metadata(value: dict[object, object], split: str) -> dict[str, object]:
@@ -224,28 +227,20 @@ class ImageFolderReader:
             )
         return metadata
 
-    def _point_labels(self, value: object, split: str) -> dict[str, np.ndarray] | None:
+    def _point_labels(self, value: object, split: str) -> np.ndarray | None:
         if value is None:
             return None
         if not isinstance(value, dict):
             raise ValueError("artifact metadata point labels must be mapped by split")
-        references = value.get(split)
-        if references is None:
+        reference = value.get(split)
+        if reference is None:
             return None
-        if not isinstance(references, dict) or not all(
-            isinstance(series_id, str) and isinstance(path, str)
-            for series_id, path in references.items()
-        ):
+        if not isinstance(reference, str):
             raise ValueError(
                 f"artifact metadata has invalid point-label references for {split}"
             )
         try:
-            return {
-                series_id: np.asarray(
-                    np.load(self._resolve(relative_path), allow_pickle=False)
-                )
-                for series_id, relative_path in references.items()
-            }
+            return np.asarray(np.load(self._resolve(reference), allow_pickle=False))
         except (OSError, ValueError) as error:
             raise ValueError(
                 f"artifact has invalid point labels for {split}"

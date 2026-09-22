@@ -38,6 +38,8 @@ def test_semi_supervised_training_applies_its_validation_holdout() -> None:
             WindowReference("series", index * 2, index * 2 + 2, 2) for index in range(5)
         ],
         source=ArrayImageSource(),
+        series_id="series",
+        series_length=10,
         window_labels=np.array([False, True, False, False, False]),
     )
 
@@ -64,6 +66,8 @@ def test_random_holdout_rejects_overlapping_windows() -> None:
             WindowReference("series", index, index + 2, 2) for index in range(5)
         ],
         source=ArrayImageSource(),
+        series_id="series",
+        series_length=6,
         window_labels=np.array([False, True, False, False, False]),
     )
 
@@ -79,6 +83,8 @@ def test_semi_supervised_training_uses_separate_temporal_validation_images() -> 
         image_shape=ImageShape(channels=1, height=2, width=2),
         window_references=(WindowReference("series", 0, 2, 2),),
         source=ArrayImageSource(1),
+        series_id="series",
+        series_length=2,
         window_labels=np.array([False]),
     )
     validation = ImageDataset(
@@ -86,6 +92,8 @@ def test_semi_supervised_training_uses_separate_temporal_validation_images() -> 
         image_shape=ImageShape(channels=1, height=2, width=2),
         window_references=(WindowReference("series", 0, 2, 2),),
         source=ArrayImageSource(1),
+        series_id="series",
+        series_length=2,
         window_labels=np.array([False]),
     )
 

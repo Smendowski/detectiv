@@ -21,9 +21,18 @@ from detectiv.scenarios import (
     ReconstructionScenario,
 )
 from detectiv.scoring import ReconstructionScoringPlan
-from detectiv.time_series import TemporalHoldout, TemporalSplitter, TimeSeries
-from detectiv.time_series.windowing import TailPolicy, WindowSpec
-from detectiv.ts2i import ImagePreparation, ImagePreparationInspection
+from detectiv.time_series import (
+    TemporalBoundary,
+    TemporalHoldout,
+    TimeSeries,
+    TimeSeriesSplit,
+)
+from detectiv.time_series.windowing import (
+    TailPolicy,
+    WindowedTimeSeriesSplit,
+    WindowSpec,
+)
+from detectiv.ts2i import ProjectedImageInspection, ProjectedImageStage
 from detectiv.ts2i.projection import FixedProjectionStrategy, ProjectionScheme
 ```
 

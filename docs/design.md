@@ -1,128 +1,53 @@
 # Design
 
-## Data model
+## Single-Series Contract
 
-```mermaid
-classDiagram
-    direction TB
-
-    class Dataset~T~ {
-        <<abstract>>
-        +dataset_id: str
-        +metadata
-        +len() int
-        +__getitem__(id) T
-    }
-
-    class TimeSeriesDataset {
-        +series: Mapping~str, TimeSeries~
-        +series_ids
-        +__getitem__(series_id) TimeSeries
-    }
-
-    class TimeSeries {
-        +series_id: str
-        +values: (time, features)
-        +labels: optional (time,)
-        +feature_names: optional
-        +sampling_rate: optional
-        +split(train_end, validation_end) TemporalSplit
-    }
-
-    class TemporalSplit~T~ {
-        +train: T
-        +validation: optional T
-        +test: T
-    }
-
-    class TemporalSplitter {
-        +split(dataset) TemporalSplit~TimeSeriesDataset~
-    }
-
-    Dataset <|-- TimeSeriesDataset
-    TimeSeriesDataset "1" o-- "*" TimeSeries
-    TemporalSplitter --> TemporalSplit
-```
+One scenario trains and evaluates one fresh model against one temporal sequence.
+`TimeSeries` is the direct core input and carries immutable provenance metadata.
 
 ```mermaid
 flowchart LR
-    L[Dataset loader] --> D[TimeSeriesDataset]
-    D --> S[TemporalSplitter]
-    S --> TR[train TimeSeriesDataset]
-    S --> VA[validation TimeSeriesDataset optional]
-    S --> TE[test TimeSeriesDataset]
+    S[TimeSeries] --> B[TemporalBoundary or TemporalHoldout]
+    B --> TR[train TimeSeries]
+    B --> VA[validation TimeSeries optional]
+    B --> TE[test TimeSeries]
+    TR --> P[fit preprocessing and projection]
+    P --> I[ImageDataset partitions]
+    I --> M[fresh model]
+    M --> R[test point scores]
 ```
 
-- `TimeSeriesDataset` is a named collection of `TimeSeries`, keyed by stable series IDs.
-- Labels remain optional and belong to individual `TimeSeries` objects.
-- `TemporalSplit` holds train, optional validation, and test objects of the same type.
-- Loaders are adapters that return a `TimeSeriesDataset`.
-- `TimeSeries.split()` is a convenience for one series; `TemporalSplitter` handles a full dataset.
+`TimeSeries.split(rule)` accepts either a `TemporalBoundary` or a
+`TemporalHoldout` and returns a `TimeSeriesSplit`. That split optionally stores
+preprocessing and transitions through `WindowedTimeSeriesSplit` to
+`ProjectedImageStage`. Preprocessing and projection state is fitted on the
+training segment only.
 
-## Image datasets
+## Image Datasets
 
-```mermaid
-classDiagram
-    direction TB
+Each `ImageDataset` belongs to exactly one explicit `series_id` and has one
+scalar `series_length`. Every `WindowReference` retains its `series_id` for
+provenance and must belong to that dataset's series and lie within its length.
+Point labels are one direct immutable array aligned with the partition.
 
-    class Dataset~T~ {
-        <<abstract>>
-    }
+Images may remain lazy or be materialized. Folder and ZIP artifacts preserve the
+same single-series fields, ordered references, labels, and metadata.
 
-    class WindowReference {
-        +series_id: str
-        +start: int
-        +stop: int
-        +valid_length: int
-    }
+## Scoring
 
-    class ImageShape {
-        +channels: int
-        +height: int
-        +width: int
-    }
+Window evidence is propagated only over the test suffix. Reconstruction point
+scores have shape `plan -> propagation -> array`, point labels are one array,
+and metric names are `<plan>.<propagation>.<metric>`.
 
-    class ImageDataset {
-        +image_shape: ImageShape
-        +window_references
-        +get_item(index)
-    }
-
-    class ImageSource {
-        <<abstract>>
-        +get_item(index)
-    }
-
-    Dataset <|-- ImageDataset
-    ImageDataset --> WindowReference
-    ImageDataset --> ImageShape
-    ImageDataset --> ImageSource
-```
-
-- `ImageDataset` may be lazy; it need not retain every image in memory.
-- `WindowReference` preserves the exact source location required for point-score propagation.
-- All images in an `ImageDataset` share one `ImageShape` so one detector can process batches safely.
-- An `ImageSource` may generate, archive, or load images without changing the dataset API.
-- Windows are an internal intermediate computation. They are not a public dataset type.
-- `window_labels` are optional image-organization metadata. They are derived from the
-  original labels and are never evaluation labels.
-
-## MVP TS2I flow
-
-`dataset` below is a `TimeSeriesDataset`; loaders remain a separate adapter layer.
+## TS2I Flow
 
 ```python
 images = (
-    ImagePreparation(dataset)
-    .split(TemporalSplitter({"series": TemporalBoundary(train_end)}))
+    series.split(TemporalBoundary(train_end))
+    .preprocess(ConstantFeatureRemoval())
     .preprocess(MinMaxScaling())
     .window(
-        train=WindowSpec(
-            64,
-            stride=64,
-            tail=TailPolicy.DROP,
-            labeling=WindowLabelingStrategy.OR_POOLING,
-        ),
+        train=WindowSpec(64, stride=64, tail=TailPolicy.DROP),
         validation=WindowSpec(64, stride=1, tail=TailPolicy.DROP),
         test=WindowSpec(64, stride=1, tail=TailPolicy.EDGE_PAD),
     )
@@ -133,51 +58,14 @@ images = (
             .replicate(n_channels=3)
         )
     )
-    .build(size=(64, 64))
+    .build(ImageSize(height=64, width=64))
 )
 ```
 
-Inspect the configured image geometry before constructing or training a model:
+Repeated `preprocess` calls compose in declaration order. Each preprocessor is
+fitted on the training output of its predecessor before all partitions are
+transformed, matching `PreprocessingPipeline` semantics without test leakage.
 
-```python
-inspection = (
-    ImagePreparation(dataset)
-    .split(splitter)
-    .window(train=train_window, validation=validation_window, test=test_window)
-    .project(projection)
-    .inspect((64, 64))
-)
-```
-
-The inspection reports image counts, image shape, and point coverage for every
-series and split. `ReconstructionScenario.inspect()` similarly reports the
-configured image counts, scoring plans, and callbacks without training.
-
-`images.train` and `images.test` are lazy `ImageDataset` instances.
-`TorchImageDataset` adapts them to PyTorch's `DataLoader`.
-
-`WindowLabelingStrategy` controls how optional window metadata is derived:
-`OR_POOLING`, `START`, or `END`. It never changes `TimeSeries.labels`; a training
-scenario later decides whether those metadata labels are used for supervised,
-semi-supervised, or unsupervised training.
-
-`ImageFolderWriter(ImageOutputConfig(path)).write(images)` writes an ordered image
-folder plus `manifest.csv`. PNG is the default, matching SPIRAL/ImageFolder usage;
-NPY is available for lossless arbitrary-channel output. The manifest is the canonical
-order and records each original window location.
-
-Alternative channelizations change only the channelization:
-
-```python
-projection = FixedProjectionStrategy(
-    ProjectionScheme(PCAChannelization(n_components=3)).channels(
-        RandomNoise(), RandomNoise(), RandomNoise()
-    )
-)
-
-mean_std_max_projection = FixedProjectionStrategy(
-    ProjectionScheme(MeanStdMaxChannelization()).channels(
-        RandomNoise(), RandomNoise(), RandomNoise()
-    )
-)
-```
+`ProjectedImageStage.inspect()` reports shape and point coverage without training.
+`ReconstructionScenario.inspect()` reports image counts, scoring plans, and
+callbacks. `TorchImageDataset` adapts lazy images to PyTorch data loaders.

@@ -48,6 +48,22 @@ def test_domain_namespaces_do_not_reexport_other_domain_contracts() -> None:
     assert not hasattr(detectiv.scenarios, "ValidationHoldout")
 
 
+def test_time_series_namespace_excludes_removed_multi_series_contracts() -> None:
+    import detectiv.time_series
+    import detectiv.time_series.windowing
+    import detectiv.ts2i
+
+    assert not hasattr(detectiv.time_series, "TimeSeriesDataset")
+    assert not hasattr(detectiv.time_series, "TemporalSplitter")
+    assert detectiv.time_series.TimeSeriesSplit.__name__ == "TimeSeriesSplit"
+    assert (
+        detectiv.time_series.windowing.WindowedTimeSeriesSplit.__name__
+        == "WindowedTimeSeriesSplit"
+    )
+    assert not hasattr(detectiv.ts2i, "ImagePreparation")
+    assert detectiv.ts2i.ProjectedImageStage.__name__ == "ProjectedImageStage"
+
+
 def test_scenarios_do_not_contain_policy_modules() -> None:
     source_root = Path(__file__).parents[2] / "src" / "detectiv" / "scenarios"
 

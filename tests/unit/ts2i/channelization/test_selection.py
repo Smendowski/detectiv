@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from detectiv.time_series import TimeSeries, TimeSeriesDataset
+from detectiv.time_series import TimeSeries
 from detectiv.ts2i.channelization import (
     FeatureSelectionScope,
     HighestVariabilityFeatureChannelization,
@@ -9,14 +9,9 @@ from detectiv.ts2i.channelization import (
 
 
 def test_selects_most_variable_training_features_in_stable_order() -> None:
-    train = TimeSeriesDataset(
-        "train",
-        {
-            "series": TimeSeries(
-                np.array([[0.0, 4.0, 1.0], [1.0, 0.0, 1.0], [2.0, 8.0, 1.0]]),
-                series_id="series",
-            )
-        },
+    train = TimeSeries(
+        np.array([[0.0, 4.0, 1.0], [1.0, 0.0, 1.0], [2.0, 8.0, 1.0]]),
+        series_id="series",
     )
     channelization = HighestVariabilityFeatureChannelization(
         2,
@@ -43,12 +38,7 @@ def test_training_set_context_requires_fit_before_selecting_features() -> None:
 def test_training_selection_rejects_windows_with_too_few_features() -> None:
     channelization = HighestVariabilityFeatureChannelization(
         2, FeatureSelectionScope.TRAINING
-    ).fit(
-        TimeSeriesDataset(
-            "train",
-            {"series": TimeSeries(np.ones((2, 2)), series_id="series")},
-        )
-    )
+    ).fit(TimeSeries(np.ones((2, 2)), series_id="series"))
 
     with pytest.raises(ValueError, match="available input features"):
         channelization.transform(np.ones((2, 1)))

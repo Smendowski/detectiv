@@ -53,9 +53,8 @@ nav:
           - TSB-AD: api/benchmarks/tsb-ad.md
       - Time Series:
           - Series: api/time-series/series.md
-          - Dataset: api/time-series/dataset.md
           - Split: api/time-series/split.md
-          - Splitters: api/time-series/splitters.md
+          - Temporal Rules: api/time-series/splitters.md
           - Preprocessing:
               - Preprocessor Contract: api/time-series/preprocessing/base.md
               - Feature Selection: api/time-series/preprocessing/feature-selection.md

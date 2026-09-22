@@ -75,6 +75,8 @@ def _images() -> ImageDataset:
         image_shape=ImageShape(1, 4, 4),
         window_references=[WindowReference("series", 0, 4, 4)],
         source=ArrayImageSource([image]),
+        series_id="series",
+        series_length=4,
     )
 
 

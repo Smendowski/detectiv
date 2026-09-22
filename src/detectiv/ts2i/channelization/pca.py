@@ -3,7 +3,7 @@ from typing import Self
 import numpy as np
 from sklearn.decomposition import PCA as SklearnPCA
 
-from detectiv.time_series import TimeSeriesDataset
+from detectiv.time_series import TimeSeries
 from detectiv.ts2i.channelization.base import Channelization
 
 
@@ -24,8 +24,8 @@ class PCAChannelization(Channelization):
         self.n_components = n_components
         self._model: SklearnPCA | None = None
 
-    def fit(self, train: TimeSeriesDataset) -> Self:
-        """Fit PCA using all training observations from every series.
+    def fit(self, train: TimeSeries) -> Self:
+        """Fit PCA using the training observations.
 
         Args:
             train: Training-only source series.
@@ -36,9 +36,7 @@ class PCAChannelization(Channelization):
         Raises:
             ValueError: If there are too few samples or features.
         """
-        values = np.concatenate(
-            tuple(train[series_id].values for series_id in train.series_ids)
-        )
+        values = train.values
         if self.n_components > min(values.shape):
             raise ValueError(
                 "n_components must not exceed the number of training samples "

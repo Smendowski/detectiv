@@ -1,11 +1,13 @@
 # TS2I Overview
 
-`ImagePreparation` is an immutable builder for the time-series-to-image flow:
+The immutable fluent stages define the time-series-to-image flow:
 
-1. Split a `TimeSeriesDataset` temporally.
-2. Optionally fit preprocessing on the training partition.
-3. Fit a `ProjectionStrategy` on training data.
-4. Generate referenced image windows for each split.
+1. `TimeSeries.split` returns `TimeSeriesSplit`.
+2. Optionally accumulate preprocessing steps; each fits on the current training
+   partition before transforming every partition.
+3. `window` returns `WindowedTimeSeriesSplit` with per-partition specifications.
+4. `project` returns `ProjectedImageStage`, which fits projection on train and
+   generates referenced images for every partition.
 
 `build` keeps images lazy in memory. `materialize` renders them once to an
 atomically published NPY artifact and returns datasets backed by those files.

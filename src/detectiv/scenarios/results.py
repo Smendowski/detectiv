@@ -138,20 +138,17 @@ class ReconstructionReport(ExperimentReport["ReconstructionReport"]):
     scenario_type: ClassVar[str] = "reconstruction"
 
     window_scores: Mapping[str, WindowEvidenceBatch]
-    point_scores: Mapping[str, Mapping[str, Mapping[str, np.ndarray]]]
+    point_scores: Mapping[str, Mapping[str, np.ndarray]]
     training: TrainingHistory
-    point_labels: Mapping[str, np.ndarray] | None = field(default=None, repr=False)
+    point_labels: np.ndarray | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.point_labels is None:
             return
-        labels: dict[str, np.ndarray] = {}
-        for series_id, values in self.point_labels.items():
-            copied = np.array(values, copy=True)
-            copied.setflags(write=False)
-            labels[series_id] = copied
-        object.__setattr__(self, "point_labels", MappingProxyType(labels))
+        labels = np.array(self.point_labels, copy=True)
+        labels.setflags(write=False)
+        object.__setattr__(self, "point_labels", labels)
 
     @property
     def training_losses(self) -> tuple[float, ...]:
@@ -173,27 +170,25 @@ class ReconstructionReport(ExperimentReport["ReconstructionReport"]):
 
     def point_scores_for(
         self,
-        series_id: str,
         *,
         scoring: ReconstructionScoringPlan | None = None,
         point_scoring: PointScoringPlan | None = None,
     ) -> np.ndarray:
-        """Return point scores for a source series and optional configured plans.
+        """Return point scores for optional configured plans.
 
         Args:
-            series_id: Source series whose scores to return.
             scoring: Reconstruction plan to select when the result contains more
                 than one.
             point_scoring: Propagation policy to select when the reconstruction
                 plan contains more than one.
 
         Returns:
-            Immutable point-level anomaly scores for the source series.
+            Immutable point-level anomaly scores.
 
         Raises:
             ValueError: If either plan is ambiguous or the propagation policy does
                 not belong to ``scoring``.
-            KeyError: If the plan or series is absent from this result.
+            KeyError: If the selected plan is absent from this result.
         """
         if scoring is None:
             if len(self.point_scores) != 1:
@@ -217,7 +212,7 @@ class ReconstructionReport(ExperimentReport["ReconstructionReport"]):
             raise ValueError("point_scoring must belong to scoring")
         else:
             point_scoring_name = point_scoring.name
-        return propagated[point_scoring_name][series_id]
+        return propagated[point_scoring_name]
 
     def record(self) -> dict[str, JSONValue]:
         """Return JSON-serializable reconstruction report metadata.

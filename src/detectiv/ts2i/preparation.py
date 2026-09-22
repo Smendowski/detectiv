@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass, replace
-from types import MappingProxyType
-from typing import cast
+from dataclasses import dataclass
 
 import numpy as np
 
 from detectiv.images import ImageDataset, ImageShape, ImageSize
 from detectiv.runs import ReproducibilitySettings
-from detectiv.time_series import TemporalSplit, TemporalSplitter, TimeSeriesDataset
+from detectiv.time_series import TemporalSplit, TimeSeries
 from detectiv.time_series.preprocessing import TimeSeriesPreprocessor
-from detectiv.time_series.windowing import SplitPart, SplitWindowing, WindowSpec
+from detectiv.time_series.windowing import (
+    SplitPart,
+    WindowedTimeSeriesSplit,
+    WindowSpec,
+)
 from detectiv.ts2i.image_source import ProjectedWindowImageSource
 from detectiv.ts2i.materialization import (
     MaterializationSettings,
@@ -22,73 +23,16 @@ from detectiv.ts2i.projection import ProjectionScheme, ProjectionStrategy
 
 
 @dataclass(frozen=True)
-class ImagePreparation:
-    """Immutable builder for a split, windowed, projected image dataset.
+class ProjectedImageStage:
+    """Projected TS2I stage ready to build, inspect, or materialize images.
 
     Args:
-        dataset: Source time-series dataset to turn into images.
+        source: Windowed temporal series partitions.
+        projection: Strategy fitted using the transformed training partition.
     """
 
-    dataset: TimeSeriesDataset
-    _splitter: TemporalSplitter | None = None
-    _windowing: SplitWindowing | None = None
-    _projection: ProjectionStrategy | None = None
-    _preprocessor: TimeSeriesPreprocessor | None = None
-
-    def split(self, splitter: TemporalSplitter) -> ImagePreparation:
-        """Return a preparation configured with its temporal splitter.
-
-        Args:
-            splitter: Strategy that partitions each source series over time.
-
-        Returns:
-            A new preparation with ``splitter`` configured.
-        """
-        return replace(self, _splitter=splitter)
-
-    def window(
-        self,
-        *,
-        train: WindowSpec,
-        test: WindowSpec,
-        validation: WindowSpec | None = None,
-    ) -> ImagePreparation:
-        """Return a preparation with per-split window specifications.
-
-        Args:
-            train: Window specification for training series.
-            test: Window specification for test series.
-            validation: Optional window specification for validation series.
-
-        Returns:
-            A new preparation with the supplied window specifications.
-        """
-        return replace(
-            self,
-            _windowing=SplitWindowing(train=train, validation=validation, test=test),
-        )
-
-    def project(self, projection: ProjectionStrategy) -> ImagePreparation:
-        """Return a preparation configured with its projection strategy.
-
-        Args:
-            projection: Strategy fit on training data to render image channels.
-
-        Returns:
-            A new preparation with ``projection`` configured.
-        """
-        return replace(self, _projection=projection)
-
-    def preprocess(self, preprocessor: TimeSeriesPreprocessor) -> ImagePreparation:
-        """Return a preparation configured with split-aware preprocessing.
-
-        Args:
-            preprocessor: Transformer fit on training data before windowing.
-
-        Returns:
-            A new preparation with ``preprocessor`` configured.
-        """
-        return replace(self, _preprocessor=preprocessor)
+    source: WindowedTimeSeriesSplit
+    projection: ProjectionStrategy
 
     def build(self, size: ImageSize, *, seed: int = 0) -> TemporalSplit[ImageDataset]:
         """Fit the pipeline and return lazy image datasets for every split.
@@ -100,15 +44,13 @@ class ImagePreparation:
         Returns:
             Train, optional validation, and test image datasets.
 
-        Raises:
-            ValueError: If splitting, windowing, or projection was not configured.
         """
-        splitter = self._required("splitter", self._splitter)
-        windowing = self._required("windowing", self._windowing)
-        projection = self._required("projection strategy", self._projection)
-        split = self.dataset.split(splitter)
-        split = self._preprocess(split, self._preprocessor)
-        fitted_projection = projection.fit(split.train)
+        windowing = self.source.windowing
+        split = self._preprocess(
+            self.source.split,
+            self.source.split._preprocessors,
+        )
+        fitted_projection = self.projection.fit(split.train)
 
         validation = None
         if split.validation is not None:
@@ -140,7 +82,7 @@ class ImagePreparation:
             ),
         )
 
-    def inspect(self, size: ImageSize, *, seed: int = 0) -> ImagePreparationInspection:
+    def inspect(self, size: ImageSize, *, seed: int = 0) -> ProjectedImageInspection:
         """Build images and summarize their shape, count, and value range.
 
         Args:
@@ -151,7 +93,7 @@ class ImagePreparation:
             Aggregate and per-series inspection information for each split.
         """
         images = self.build(size, seed=seed)
-        return ImagePreparationInspection(
+        return ProjectedImageInspection(
             train=_inspect_images(images.train),
             validation=None
             if images.validation is None
@@ -188,38 +130,36 @@ class ImagePreparation:
 
     @staticmethod
     def _preprocess(
-        split: TemporalSplit[TimeSeriesDataset],
-        preprocessor: TimeSeriesPreprocessor | None = None,
-    ) -> TemporalSplit[TimeSeriesDataset]:
-        if preprocessor is None:
-            return split
-        preprocessor.fit(split.train)
-        validation = None
-        if split.validation is not None:
-            validation = preprocessor.transform(split.validation)
-        return TemporalSplit(
-            train=preprocessor.transform(split.train),
-            validation=validation,
-            test=preprocessor.transform(split.test),
-        )
-
-    @staticmethod
-    def _required[T](name: str, value: T | None) -> T:
-        if value is None:
-            raise ValueError(f"{name} must be configured before building images")
-        return value
+        split: TemporalSplit[TimeSeries],
+        preprocessors: tuple[TimeSeriesPreprocessor, ...],
+    ) -> TemporalSplit[TimeSeries]:
+        for preprocessor in preprocessors:
+            preprocessor.fit(split.train)
+            train = preprocessor.transform(split.train)
+            validation = None
+            if split.validation is not None:
+                validation = preprocessor.transform(split.validation)
+            test = preprocessor.transform(split.test)
+            split = TemporalSplit(
+                train=train,
+                validation=validation,
+                test=test,
+            )
+        return split
 
     @staticmethod
     def _images(
-        dataset: TimeSeriesDataset,
+        series: TimeSeries,
         window: WindowSpec,
         projection: ProjectionScheme,
         size: ImageSize,
         seed: int,
         split: SplitPart,
     ) -> ImageDataset:
+        if series.series_id is None:
+            raise ValueError("series must define series_id")
         source = ProjectedWindowImageSource(
-            dataset,
+            series,
             window=window,
             projection=projection,
             size=size,
@@ -227,7 +167,7 @@ class ImagePreparation:
             split=split.value,
         )
         return ImageDataset(
-            f"{dataset.dataset_id}:images",
+            f"{series.series_id}:{split.value}:images",
             image_shape=ImageShape(
                 channels=projection.n_channels,
                 height=size.height,
@@ -235,19 +175,11 @@ class ImagePreparation:
             ),
             window_references=source.window_references,
             source=source,
+            series_id=series.series_id,
+            series_length=series.n_timesteps,
             window_labels=source.window_labels,
-            series_lengths={
-                series_id: dataset[series_id].n_timesteps
-                for series_id in dataset.series_ids
-            },
-            point_labels=None
-            if dataset[dataset.series_ids[0]].labels is None
-            else {
-                series_id: cast(np.ndarray, dataset[series_id].labels)
-                for series_id in dataset.series_ids
-                if dataset[series_id].labels is not None
-            },
-            metadata=dataset.metadata,
+            point_labels=series.labels,
+            metadata=series.metadata,
         )
 
 
@@ -264,15 +196,16 @@ class ImageSeriesInspection:
 
 @dataclass(frozen=True)
 class ImageSplitInspection:
-    """Aggregate and per-series inspection details for one temporal split."""
+    """Inspection details for one temporal split."""
 
     image_count: int
     image_shape: ImageShape
-    series: Mapping[str, ImageSeriesInspection]
+    series_id: str
+    series: ImageSeriesInspection
 
 
 @dataclass(frozen=True)
-class ImagePreparationInspection:
+class ProjectedImageInspection:
     """Inspection details for all image dataset partitions."""
 
     train: ImageSplitInspection
@@ -293,36 +226,27 @@ class ImagePreparationInspection:
 
 
 def _inspect_images(images: ImageDataset) -> ImageSplitInspection:
-    series: dict[str, ImageSeriesInspection] = {}
-    for series_id, series_length in images.series_lengths.items():
-        coverage = np.zeros(series_length, dtype=np.intp)
-        references = [
-            reference
-            for reference in images.window_references
-            if reference.series_id == series_id
-        ]
-        for reference in references:
-            coverage[reference.start : reference.stop] += 1
-        series[series_id] = ImageSeriesInspection(
-            series_length=series_length,
-            windows=len(references),
-            covered_points=int(np.count_nonzero(coverage)),
-            uncovered_points=int(np.count_nonzero(coverage == 0)),
-            maximum_coverage=int(coverage.max()) if len(coverage) else 0,
-        )
+    coverage = np.zeros(images.series_length, dtype=np.intp)
+    for reference in images.window_references:
+        coverage[reference.start : reference.stop] += 1
     return ImageSplitInspection(
         image_count=len(images),
         image_shape=images.image_shape,
-        series=MappingProxyType(series),
+        series_id=images.series_id,
+        series=ImageSeriesInspection(
+            series_length=images.series_length,
+            windows=len(images),
+            covered_points=int(np.count_nonzero(coverage)),
+            uncovered_points=int(np.count_nonzero(coverage == 0)),
+            maximum_coverage=int(coverage.max()),
+        ),
     )
 
 
 def _split_summary(name: str, inspection: ImageSplitInspection) -> str:
-    series = ", ".join(
-        f"{series_id}: {values.windows} windows, {values.uncovered_points} uncovered"
-        for series_id, values in inspection.series.items()
-    )
     return (
         f"{name}: {inspection.image_count} images with shape "
-        f"{inspection.image_shape.shape} ({series})"
+        f"{inspection.image_shape.shape} ({inspection.series_id}: "
+        f"{inspection.series.windows} windows, "
+        f"{inspection.series.uncovered_points} uncovered)"
     )

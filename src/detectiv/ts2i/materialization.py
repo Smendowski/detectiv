@@ -445,8 +445,9 @@ def _write_images(
             image_shape=dataset.image_shape,
             window_references=dataset.window_references,
             source=NpyImageSource(paths),
+            series_id=dataset.series_id,
+            series_length=dataset.series_length,
             window_labels=dataset.window_labels,
-            series_lengths=dataset.series_lengths,
             point_labels=dataset.point_labels,
             metadata=metadata,
         )
@@ -539,8 +540,9 @@ def _rebase(
             image_shape=dataset.image_shape,
             window_references=dataset.window_references,
             source=cast(NpyImageSource, dataset.source).rebase(source, destination),
+            series_id=dataset.series_id,
+            series_length=dataset.series_length,
             window_labels=dataset.window_labels,
-            series_lengths=dataset.series_lengths,
             point_labels=dataset.point_labels,
             metadata=dataset.metadata,
         )

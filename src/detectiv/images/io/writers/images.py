@@ -22,6 +22,7 @@ IMAGE_ARTIFACT_MANIFEST_FIELDS = (
 )
 
 POINT_LABELS_DIRECTORY = "point_labels"
+IMAGE_ARTIFACT_SCHEMA_VERSION = 2
 
 
 def write_image_artifact_metadata(
@@ -49,9 +50,9 @@ def write_image_artifact_metadata(
         raise ValueError("PNG output requires three image channels")
 
     dataset_ids = {"train": images.train.dataset_id, "test": images.test.dataset_id}
-    series_lengths = {
-        "train": dict(images.train.series_lengths),
-        "test": dict(images.test.series_lengths),
+    series = {
+        "train": {"id": images.train.series_id, "length": images.train.series_length},
+        "test": {"id": images.test.series_id, "length": images.test.series_length},
     }
     dataset_metadata = {
         "train": dict(images.train.metadata),
@@ -59,12 +60,16 @@ def write_image_artifact_metadata(
     }
     if images.validation is not None:
         dataset_ids["validation"] = images.validation.dataset_id
-        series_lengths["validation"] = dict(images.validation.series_lengths)
+        series["validation"] = {
+            "id": images.validation.series_id,
+            "length": images.validation.series_length,
+        }
         dataset_metadata["validation"] = dict(images.validation.metadata)
 
     point_labels = _write_point_label_sidecars(root, images)
 
     metadata = {
+        "schema_version": IMAGE_ARTIFACT_SCHEMA_VERSION,
         "format": image_format,
         "image_shape": {
             "channels": image_shape.channels,
@@ -72,7 +77,7 @@ def write_image_artifact_metadata(
             "width": image_shape.width,
         },
         "dataset_ids": dataset_ids,
-        "series_lengths": series_lengths,
+        "series": series,
         "dataset_metadata": dataset_metadata,
     }
     if point_labels:
@@ -88,23 +93,20 @@ def write_image_artifact_metadata(
 
 def _write_point_label_sidecars(
     root: Path, images: TemporalSplit[ImageDataset]
-) -> dict[str, dict[str, str]]:
+) -> dict[str, str]:
     datasets = [("train", images.train), ("test", images.test)]
     if images.validation is not None:
         datasets.append(("validation", images.validation))
 
-    references: dict[str, dict[str, str]] = {}
+    references: dict[str, str] = {}
     for split, dataset in datasets:
         if dataset.point_labels is None:
             continue
-        split_references: dict[str, str] = {}
-        for index, (series_id, labels) in enumerate(dataset.point_labels.items()):
-            relative_path = Path(POINT_LABELS_DIRECTORY) / split / f"{index:06d}.npy"
-            path = root / relative_path
-            path.parent.mkdir(parents=True, exist_ok=True)
-            np.save(path, labels, allow_pickle=False)
-            split_references[series_id] = relative_path.as_posix()
-        references[split] = split_references
+        relative_path = Path(POINT_LABELS_DIRECTORY) / f"{split}.npy"
+        path = root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(path, dataset.point_labels, allow_pickle=False)
+        references[split] = relative_path.as_posix()
     return references
 
 

@@ -41,16 +41,16 @@ def test_tsb_ad_evaluator_is_compatible_with_metrics_callback(tmp_path: Path) ->
     evaluator = TSBADAdapter(_source(tmp_path)).evaluator(sliding_window=3)
     report = ReconstructionReport(
         window_scores={},
-        point_scores={"plan": {"mean": {"series": np.array([0.1, 0.9])}}},
-        point_labels={"series": np.array([0, 1])},
+        point_scores={"plan": {"mean": np.array([0.1, 0.9])}},
+        point_labels=np.array([0, 1]),
         training=TrainingHistory((0.5,)),
     )
 
     result = MetricsCallback(evaluator).on_run_finished(report)
 
     assert result.metrics == {
-        "plan.mean.series.thresholds": 250.0,
-        "plan.mean.series.window": 3.0,
+        "plan.mean.thresholds": 250.0,
+        "plan.mean.window": 3.0,
     }
 
 

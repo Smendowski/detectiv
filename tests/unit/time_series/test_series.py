@@ -72,9 +72,10 @@ def test_series_can_be_split_in_temporal_order() -> None:
         np.arange(12),
         labels=np.array([0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0]),
         series_id="tao",
+        metadata={"source": "test"},
     )
 
-    split = series.split(train_end=5, validation_end=8)
+    split = series.split(TemporalBoundary(train_end=5, validation_end=8))
 
     assert split.train.values[:, 0].tolist() == [0.0, 1.0, 2.0, 3.0, 4.0]
     assert split.validation is not None
@@ -84,31 +85,34 @@ def test_series_can_be_split_in_temporal_order() -> None:
     assert split.train.series_id == "tao"
     assert split.validation.series_id == "tao"
     assert split.test.series_id == "tao"
+    assert split.train.metadata == {"source": "test"}
+    with pytest.raises(TypeError):
+        split.test.metadata["source"] = "other"  # type: ignore[index]
 
 
 def test_series_can_be_split_without_validation() -> None:
-    split = TimeSeries(np.arange(6)).split(train_end=2)
+    split = TimeSeries(np.arange(6)).split(TemporalBoundary(train_end=2))
 
     assert split.validation is None
     assert split.train.n_timesteps == 2
     assert split.test.n_timesteps == 4
 
 
-@pytest.mark.parametrize(
-    ("train_end", "validation_end"),
-    [(0, None), (6, None), (2, 2), (2, 6)],
-)
-def test_invalid_temporal_split_is_rejected(
-    train_end: int, validation_end: int | None
-) -> None:
+@pytest.mark.parametrize("train_end", [6, 7])
+def test_invalid_temporal_split_is_rejected(train_end: int) -> None:
     with pytest.raises(ValueError):
-        TimeSeries(np.arange(6)).split(train_end, validation_end)
+        TimeSeries(np.arange(6)).split(TemporalBoundary(train_end))
 
 
-@pytest.mark.parametrize("train_end", [2.5, True])
-def test_temporal_split_requires_an_integral_train_boundary(train_end: object) -> None:
-    with pytest.raises(ValueError, match="train_end must be an integer"):
-        TimeSeries(np.arange(6)).split(train_end)  # type: ignore[arg-type]
+def test_series_split_resolves_a_temporal_holdout() -> None:
+    split = TimeSeries(np.arange(10)).split(
+        TemporalHoldout(test_start=8, validation_fraction=0.25)
+    )
+
+    assert split.train.values.ravel().tolist() == list(range(6))
+    assert split.validation is not None
+    assert split.validation.values.ravel().tolist() == [6, 7]
+    assert split.test.values.ravel().tolist() == [8, 9]
 
 
 @pytest.mark.parametrize("value", [2.5, True])

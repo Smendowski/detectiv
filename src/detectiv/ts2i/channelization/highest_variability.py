@@ -3,7 +3,7 @@ from typing import Self
 
 import numpy as np
 
-from detectiv.time_series import TimeSeriesDataset
+from detectiv.time_series import TimeSeries
 from detectiv.ts2i.channelization.base import Channelization
 
 
@@ -46,7 +46,7 @@ class HighestVariabilityFeatureChannelization(Channelization):
         """
         return self._feature_indices
 
-    def fit(self, train: TimeSeriesDataset) -> Self:
+    def fit(self, train: TimeSeries) -> Self:
         """Rank features across training data when using training scope.
 
         Args:
@@ -56,10 +56,7 @@ class HighestVariabilityFeatureChannelization(Channelization):
             This channelization, potentially with selected feature indices.
         """
         if self.scope is FeatureSelectionScope.TRAINING:
-            values = np.concatenate(
-                tuple(train[series_id].values for series_id in train.series_ids)
-            )
-            self._feature_indices = self._select(values)
+            self._feature_indices = self._select(train.values)
         return self
 
     def transform(self, window: np.ndarray) -> tuple[np.ndarray, ...]:

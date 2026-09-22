@@ -11,16 +11,13 @@ from detectiv.images.io.writers import ImageArchiveWriter, ImageFolderWriter
 from detectiv.time_series import (
     TemporalBoundary,
     TemporalSplit,
-    TemporalSplitter,
     TimeSeries,
-    TimeSeriesDataset,
 )
 from detectiv.time_series.windowing import (
     TailPolicy,
     WindowReference,
     WindowSpec,
 )
-from detectiv.ts2i import ImagePreparation
 from detectiv.ts2i.channelization import IdentityChannelization
 from detectiv.ts2i.projection import FixedProjectionStrategy, ProjectionScheme
 from detectiv.ts2i.transformations import RandomNoise
@@ -38,15 +35,10 @@ class ArrayImageSource(ImageSource):
 
 
 def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
-    dataset = TimeSeriesDataset(
-        "example",
-        {
-            "series": TimeSeries(
-                np.arange(16).reshape(8, 2),
-                labels=np.array([0, 0, 0, 0, 0, 0, 1, 0]),
-                series_id="series",
-            )
-        },
+    series = TimeSeries(
+        np.arange(16).reshape(8, 2),
+        labels=np.array([0, 0, 0, 0, 0, 0, 1, 0]),
+        series_id="series",
     )
     projection = FixedProjectionStrategy(
         ProjectionScheme(IdentityChannelization())
@@ -55,8 +47,7 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
     )
 
     images = (
-        ImagePreparation(dataset)
-        .split(TemporalSplitter({"series": TemporalBoundary(4)}))
+        series.split(TemporalBoundary(4))
         .window(
             train=WindowSpec(2),
             test=WindowSpec(2, stride=1, tail=TailPolicy.EDGE_PAD),
@@ -83,19 +74,13 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
 
 
 def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:
-    dataset = TimeSeriesDataset(
-        "example",
-        {
-            "series": TimeSeries(
-                np.arange(16).reshape(8, 2),
-                labels=np.array([0, 0, 0, 0, 0, 0, 1, 0]),
-                series_id="series",
-            )
-        },
+    series = TimeSeries(
+        np.arange(16).reshape(8, 2),
+        labels=np.array([0, 0, 0, 0, 0, 0, 1, 0]),
+        series_id="series",
     )
     images = (
-        ImagePreparation(dataset)
-        .split(TemporalSplitter({"series": TemporalBoundary(4)}))
+        series.split(TemporalBoundary(4))
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(
             FixedProjectionStrategy(
@@ -135,19 +120,13 @@ def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:
 
 
 def test_image_artifacts_round_trip_lazily(tmp_path: Path) -> None:
-    dataset = TimeSeriesDataset(
-        "example",
-        {
-            "series": TimeSeries(
-                np.arange(16).reshape(8, 2),
-                labels=np.array([0, 0, 0, 0, 0, 0, 1, 0]),
-                series_id="series",
-            )
-        },
+    series = TimeSeries(
+        np.arange(16).reshape(8, 2),
+        labels=np.array([0, 0, 0, 0, 0, 0, 1, 0]),
+        series_id="series",
     )
     images = (
-        ImagePreparation(dataset)
-        .split(TemporalSplitter({"series": TemporalBoundary(4)}))
+        series.split(TemporalBoundary(4))
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(
             FixedProjectionStrategy(
@@ -167,7 +146,8 @@ def test_image_artifacts_round_trip_lazily(tmp_path: Path) -> None:
     assert restored.test.source.__class__.__name__ == "ImageFolderSource"
     np.testing.assert_array_equal(restored.test[0], images.test[0])
     assert restored.test.window_references == images.test.window_references
-    assert restored.test.series_lengths == images.test.series_lengths
+    assert restored.test.series_id == images.test.series_id
+    assert restored.test.series_length == images.test.series_length
     np.testing.assert_array_equal(
         restored.test.window_labels,
         images.test.window_labels,
@@ -202,6 +182,8 @@ def test_image_folder_round_trips_unlabeled_images(tmp_path: Path) -> None:
         image_shape=ImageShape(3, 2, 2),
         window_references=[WindowReference("series", 0, 2, 2)],
         source=ArrayImageSource([image]),
+        series_id="series",
+        series_length=2,
     )
     split = TemporalSplit(train=dataset, test=dataset)
 

@@ -3,13 +3,13 @@ from typing import Self
 
 import numpy as np
 
-from detectiv.time_series import TimeSeriesDataset
+from detectiv.time_series import TimeSeries
 
 
 class Channelization(ABC):
     """Convert multivariate time windows into transformation input planes."""
 
-    def fit(self, train: TimeSeriesDataset) -> Self:
+    def fit(self, train: TimeSeries) -> Self:
         """Fit state from the training split and return this channelization.
 
         Args:

@@ -17,7 +17,7 @@ def test_artifact_callback_writes_the_completed_run(tmp_path: Path) -> None:
     )
     result = ReconstructionScenarioResult(
         window_scores={},
-        point_scores={"window": {"mean": {"series": np.array([1.0])}}},
+        point_scores={"window": {"mean": np.array([1.0])}},
         training=TrainingHistory((0.5,)),
     )
 
@@ -38,7 +38,7 @@ def test_artifact_callback_uses_run_id_default_and_links_its_manifest(
     context.register_mlflow("native-run", "mlruns:/native-run")
     result = ReconstructionScenarioResult(
         window_scores={},
-        point_scores={"window": {"mean": {"series": np.array([1.0])}}},
+        point_scores={"window": {"mean": np.array([1.0])}},
         training=TrainingHistory((0.5,)),
     )
 

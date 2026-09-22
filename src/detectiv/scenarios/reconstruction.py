@@ -195,36 +195,26 @@ class ReconstructionScenario(BaseScenario[ReconstructionReport]):
 
     def _propagate(
         self, plan: ReconstructionScoringPlan, scores: WindowEvidenceBatch
-    ) -> Mapping[str, Mapping[str, np.ndarray]]:
-        series_ids = dict.fromkeys(
-            reference.series_id for reference in scores.references
-        )
+    ) -> Mapping[str, np.ndarray]:
+        series_id = self.images.test.series_id
         point_scores = {
-            point_scoring.name: MappingProxyType(
-                {
-                    series_id: _readonly(
-                        point_scoring.aggregator.aggregate(
-                            point_scoring.assignment.assign(
-                                scores.for_series(series_id)
-                            ),
-                            self.images.test.series_lengths[series_id],
-                        )
-                    )
-                    for series_id in series_ids
-                }
+            point_scoring.name: _readonly(
+                point_scoring.aggregator.aggregate(
+                    point_scoring.assignment.assign(scores.for_series(series_id)),
+                    self.images.test.series_length,
+                )
             )
             for point_scoring in plan.point_scoring
         }
         return MappingProxyType(point_scores)
 
     def _validate_scores(self, scores: Mapping[str, WindowEvidenceBatch]) -> None:
-        expected_series = set(self.images.test.series_lengths)
         for plan, values in scores.items():
             scored_series = {reference.series_id for reference in values.references}
-            if missing := expected_series - scored_series:
+            if scored_series != {self.images.test.series_id}:
                 raise ValueError(
-                    f"scoring plan {plan!r} produced no scores for test series: "
-                    f"{', '.join(sorted(missing))}"
+                    f"scoring plan {plan!r} must score only test series "
+                    f"{self.images.test.series_id!r}"
                 )
 
 
@@ -237,9 +227,10 @@ def _readonly(values: np.ndarray) -> np.ndarray:
 def _dataset_record(dataset: ImageDataset) -> dict[str, JSONValue]:
     record: dict[str, JSONValue] = {
         "dataset_id": dataset.dataset_id,
+        "series_id": dataset.series_id,
         "image_shape": list(dataset.image_shape.shape),
         "window_count": len(dataset),
-        "series_lengths": dict(dataset.series_lengths),
+        "series_length": dataset.series_length,
     }
     if dataset.metadata:
         record["metadata"] = cast(JSONValue, dict(dataset.metadata))

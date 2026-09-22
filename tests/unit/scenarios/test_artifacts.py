@@ -17,7 +17,7 @@ from detectiv.time_series.windowing import WindowReference
 
 @dataclass(frozen=True)
 class OtherScenarioResult:
-    point_scores: dict[str, dict[str, dict[str, np.ndarray]]]
+    point_scores: dict[str, dict[str, np.ndarray]]
     training: TrainingHistory
     reproducibility: dict[str, JSONValue]
     resolved_inputs: dict[str, JSONValue]
@@ -54,7 +54,7 @@ def test_run_artifact_writer_separates_manifest_and_point_scores(
                 np.array([1.0]), (WindowReference("series", 0, 3, 3),)
             )
         },
-        point_scores={"window": {"mean": {"series": np.array([1.0, 2.0, 3.0])}}},
+        point_scores={"window": {"mean": np.array([1.0, 2.0, 3.0])}},
         training=TrainingHistory((0.5,)),
     )
 
@@ -67,7 +67,7 @@ def test_run_artifact_writer_separates_manifest_and_point_scores(
 
     manifest = json.loads(artifacts.manifest.read_text())
     scores = np.load(artifacts.point_scores)
-    assert manifest["schema_version"] == 2
+    assert manifest["schema_version"] == 3
     assert manifest["scenario_type"] == "reconstruction"
     assert manifest["training"] == {
         "losses": [0.5],
@@ -82,37 +82,35 @@ def test_run_artifact_writer_separates_manifest_and_point_scores(
     assert "inputs" not in manifest
     assert manifest["runtime"]["source_revision"]
     assert manifest["runtime"]["dependency_lock_sha256"]
-    assert manifest["scores"]["keys"] == {"window": {"mean": {"series": "score_0_0_0"}}}
+    assert manifest["scores"]["keys"] == {"window": {"mean": "score_0_0"}}
     assert manifest["metrics"] == {"window": {"mean": {"series": {"AUC-PR": 0.8}}}}
     assert (
         manifest["artifacts"]["point_scores.npz"]
         == hashlib.file_digest(artifacts.point_scores.open("rb"), "sha256").hexdigest()
     )
-    np.testing.assert_allclose(scores["score_0_0_0"], [1.0, 2.0, 3.0])
+    np.testing.assert_allclose(scores["score_0_0"], [1.0, 2.0, 3.0])
 
 
 def test_reconstruction_report_writes_its_metrics(tmp_path: Path) -> None:
     report = ReconstructionScenarioResult(
         window_scores={},
-        point_scores={"window": {"mean": {"series": np.array([1.0])}}},
+        point_scores={"window": {"mean": np.array([1.0])}},
         training=TrainingHistory((0.5,)),
-        metrics={"window.mean.series.ROC-AUC": 0.9},
+        metrics={"window.mean.ROC-AUC": 0.9},
     )
 
     artifacts = report.write(tmp_path)
 
-    assert report.summary().endswith(
-        "Metrics (window / mean / series):\n  ROC-AUC: 0.900"
-    )
-    assert tuple(report.metrics) == ("window.mean.series.ROC-AUC",)
-    assert artifacts.read_report()["metrics"] == {"window.mean.series.ROC-AUC": 0.9}
+    assert report.summary().endswith("Metrics (window / mean):\n  ROC-AUC: 0.900")
+    assert tuple(report.metrics) == ("window.mean.ROC-AUC",)
+    assert artifacts.read_report()["metrics"] == {"window.mean.ROC-AUC": 0.9}
 
 
 def test_run_artifact_writer_creates_opt_in_figures(tmp_path: Path) -> None:
     pytest.importorskip("matplotlib.pyplot")
     result = ReconstructionScenarioResult(
         window_scores={},
-        point_scores={"window": {"mean": {"series": np.array([1.0, 2.0])}}},
+        point_scores={"window": {"mean": np.array([1.0, 2.0])}},
         training=TrainingHistory((0.5,), validation_losses=(0.4,)),
     )
 
@@ -120,14 +118,14 @@ def test_run_artifact_writer_creates_opt_in_figures(tmp_path: Path) -> None:
 
     assert [path.relative_to(tmp_path).as_posix() for path in artifacts.figures] == [
         "figures/training_loss.png",
-        "figures/score_0_0_0.png",
+        "figures/score_0_0.png",
     ]
 
 
 def test_run_artifacts_open_verify_and_load_scores(tmp_path: Path) -> None:
     result = ReconstructionScenarioResult(
         window_scores={},
-        point_scores={"window": {"mean": {"series": np.array([1.0, 2.0])}}},
+        point_scores={"window": {"mean": np.array([1.0, 2.0])}},
         training=TrainingHistory((0.5,)),
     )
     RunArtifactWriter(tmp_path).write(result)
@@ -136,14 +134,14 @@ def test_run_artifacts_open_verify_and_load_scores(tmp_path: Path) -> None:
 
     artifacts.verify()
     scores = artifacts.load_scores()
-    np.testing.assert_allclose(scores["score_0_0_0"], [1.0, 2.0])
-    assert not scores["score_0_0_0"].flags.writeable
+    np.testing.assert_allclose(scores["score_0_0"], [1.0, 2.0])
+    assert not scores["score_0_0"].flags.writeable
 
 
 def test_run_artifacts_verified_access_checks_before_reading(tmp_path: Path) -> None:
     result = ReconstructionScenarioResult(
         window_scores={},
-        point_scores={"window": {"mean": {"series": np.array([1.0])}}},
+        point_scores={"window": {"mean": np.array([1.0])}},
         training=TrainingHistory((0.5,)),
     )
     artifacts = RunArtifactWriter(tmp_path).write(result)
@@ -156,7 +154,7 @@ def test_run_artifacts_verified_access_checks_before_reading(tmp_path: Path) -> 
 def test_run_artifacts_detect_corrupted_scores(tmp_path: Path) -> None:
     result = ReconstructionScenarioResult(
         window_scores={},
-        point_scores={"window": {"mean": {"series": np.array([1.0])}}},
+        point_scores={"window": {"mean": np.array([1.0])}},
         training=TrainingHistory((0.5,)),
     )
     artifacts = RunArtifactWriter(tmp_path).write(result)
@@ -169,7 +167,7 @@ def test_run_artifacts_detect_corrupted_scores(tmp_path: Path) -> None:
 def test_run_artifacts_reject_missing_score_checksum(tmp_path: Path) -> None:
     result = ReconstructionScenarioResult(
         window_scores={},
-        point_scores={"window": {"mean": {"series": np.array([1.0])}}},
+        point_scores={"window": {"mean": np.array([1.0])}},
         training=TrainingHistory((0.5,)),
     )
     artifacts = RunArtifactWriter(tmp_path).write(result)
@@ -225,7 +223,7 @@ def test_run_artifact_writer_does_not_publish_interrupted_bundle(
 
 def test_artifact_writer_accepts_a_non_reconstruction_result(tmp_path: Path) -> None:
     result = OtherScenarioResult(
-        point_scores={"score": {"mean": {"series": np.array([1.0])}}},
+        point_scores={"score": {"mean": np.array([1.0])}},
         training=TrainingHistory((0.5,)),
         reproducibility={"seed": 7},
         resolved_inputs={"scenario": "other", "options": [True, None]},
@@ -275,7 +273,7 @@ def test_artifact_writer_rejects_non_finite_scores(
 ) -> None:
     result = ReconstructionScenarioResult(
         window_scores={},
-        point_scores={"window": {"mean": {"series": np.array([value])}}},
+        point_scores={"window": {"mean": np.array([value])}},
         training=TrainingHistory((0.5,)),
     )
 

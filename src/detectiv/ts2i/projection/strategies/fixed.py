@@ -1,7 +1,7 @@
 from copy import deepcopy
 from dataclasses import replace
 
-from detectiv.time_series import TimeSeriesDataset
+from detectiv.time_series import TimeSeries
 from detectiv.ts2i.projection.schemes import ProjectionScheme
 from detectiv.ts2i.projection.strategies.base import ProjectionStrategy
 
@@ -17,7 +17,7 @@ class FixedProjectionStrategy(ProjectionStrategy):
         """
         self.scheme = scheme
 
-    def fit(self, train: TimeSeriesDataset) -> ProjectionScheme:
+    def fit(self, train: TimeSeries) -> ProjectionScheme:
         """Clone and fit the scheme channelization on training data.
 
         Args:

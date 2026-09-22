@@ -147,24 +147,23 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
         "Test images: 2",
     ]
     assert len(result.window_scores["mean_squared_window"].references) == 2
-    assert result.point_scores["mean_squared_window"]["uniform_mean"][
-        "series"
-    ].shape == (6,)
-    assert not result.point_scores["mean_squared_window"]["uniform_mean"][
-        "series"
+    assert result.point_scores["mean_squared_window"]["uniform_mean"].shape == (6,)
+    assert not result.point_scores["mean_squared_window"][
+        "uniform_mean"
     ].flags.writeable
     assert (
-        result.point_scores_for("series")
-        is (result.point_scores["mean_squared_window"]["uniform_mean"]["series"])
+        result.point_scores_for()
+        is (result.point_scores["mean_squared_window"]["uniform_mean"])
     )
-    assert result.point_scores_for(
-        "series", scoring=scenario.scoring_plans[0]
-    ) is result.point_scores_for("series")
+    assert (
+        result.point_scores_for(scoring=scenario.scoring_plans[0])
+        is result.point_scores_for()
+    )
     with pytest.raises(TypeError):
         result.point_scores["other"] = {}  # type: ignore[index]
     assert result.callbacks["timing"] is timer
     assert result.point_labels is not None
-    np.testing.assert_array_equal(result.point_labels["series"], [0, 0, 1, 1, 0, 0])
+    np.testing.assert_array_equal(result.point_labels, [0, 0, 1, 1, 0, 0])
     assert timer.elapsed_seconds is not None
     assert result.resolved_inputs["scenario"] == (
         "detectiv.scenarios.reconstruction.ReconstructionScenario"
@@ -172,16 +171,18 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
     assert result.resolved_inputs["data"] == {
         "train": {
             "dataset_id": "images",
+            "series_id": "series",
             "image_shape": [1, 4, 4],
             "window_count": 2,
-            "series_lengths": {"series": 8},
+            "series_length": 8,
         },
         "validation": None,
         "test": {
             "dataset_id": "images",
+            "series_id": "series",
             "image_shape": [1, 4, 4],
             "window_count": 2,
-            "series_lengths": {"series": 6},
+            "series_length": 6,
         },
     }
     trainer = result.resolved_inputs["trainer"]
@@ -293,6 +294,8 @@ def test_failure_notification_does_not_replace_the_primary_error() -> None:
         image_shape=ImageShape(1, 4, 4),
         window_references=(),
         source=ArrayImageSource([]),
+        series_id="series",
+        series_length=4,
     )
     events: list[str] = []
     scenario = _scenario(
@@ -364,6 +367,8 @@ def test_reconstruction_scenario_rejects_an_empty_test_dataset() -> None:
         image_shape=ImageShape(1, 4, 4),
         window_references=(),
         source=ArrayImageSource([]),
+        series_id="series",
+        series_length=4,
     )
     scenario = ReconstructionScenario(
         images=TemporalSplit(train=train, test=test),
@@ -403,8 +408,9 @@ def _images(
         window_references=references,
         source=ArrayImageSource(values),
         window_labels=labels,
-        series_lengths={"series": series_length},
-        point_labels=(None if point_labels is None else {"series": point_labels}),
+        series_id="series",
+        series_length=series_length,
+        point_labels=point_labels,
     )
 
 

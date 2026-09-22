@@ -1,30 +1,20 @@
 import numpy as np
 import pytest
 
-from detectiv.time_series import TimeSeries, TimeSeriesDataset
+from detectiv.time_series import TimeSeries
 from detectiv.time_series.preprocessing import MinMaxScaling
 
 
 def test_min_max_scaling_fits_training_data_and_does_not_clip_test_values() -> None:
-    train = TimeSeriesDataset(
-        "train",
-        {
-            "series": TimeSeries(
-                np.array([[0.0, 10.0], [10.0, 30.0]]),
-                labels=np.array([0, 0]),
-                series_id="series",
-            )
-        },
+    train = TimeSeries(
+        np.array([[0.0, 10.0], [10.0, 30.0]]),
+        labels=np.array([0, 0]),
+        series_id="series",
     )
-    test = TimeSeriesDataset(
-        "test",
-        {
-            "series": TimeSeries(
-                np.array([[20.0, 50.0]]),
-                labels=np.array([1]),
-                series_id="series",
-            )
-        },
+    test = TimeSeries(
+        np.array([[20.0, 50.0]]),
+        labels=np.array([1]),
+        series_id="series",
     )
 
     scaling = MinMaxScaling().fit(train)
@@ -32,38 +22,28 @@ def test_min_max_scaling_fits_training_data_and_does_not_clip_test_values() -> N
     scaled_test = scaling.transform(test)
 
     np.testing.assert_array_equal(
-        scaled_train["series"].values,
+        scaled_train.values,
         np.array([[0.0, 0.0], [1.0, 1.0]]),
     )
     np.testing.assert_array_equal(
-        scaled_test["series"].values,
+        scaled_test.values,
         np.array([[2.0, 2.0]]),
     )
-    assert test["series"].labels is not None
-    assert scaled_test["series"].labels is not None
-    np.testing.assert_array_equal(scaled_test["series"].labels, test["series"].labels)
+    assert test.labels is not None
+    assert scaled_test.labels is not None
+    np.testing.assert_array_equal(scaled_test.labels, test.labels)
 
 
 def test_min_max_scaling_rejects_reordered_named_features() -> None:
-    train = TimeSeriesDataset(
-        "train",
-        {
-            "series": TimeSeries(
-                np.array([[0.0, 10.0], [10.0, 30.0]]),
-                feature_names=("first", "second"),
-                series_id="series",
-            )
-        },
+    train = TimeSeries(
+        np.array([[0.0, 10.0], [10.0, 30.0]]),
+        feature_names=("first", "second"),
+        series_id="series",
     )
-    reordered = TimeSeriesDataset(
-        "test",
-        {
-            "series": TimeSeries(
-                np.array([[50.0, 20.0]]),
-                feature_names=("second", "first"),
-                series_id="series",
-            )
-        },
+    reordered = TimeSeries(
+        np.array([[50.0, 20.0]]),
+        feature_names=("second", "first"),
+        series_id="series",
     )
 
     with pytest.raises(ValueError, match="feature names"):

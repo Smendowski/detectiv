@@ -18,10 +18,10 @@ class _MetricsReport(Protocol):
     @property
     def point_scores(
         self,
-    ) -> Mapping[str, Mapping[str, Mapping[str, np.ndarray]]]: ...
+    ) -> Mapping[str, Mapping[str, np.ndarray]]: ...
 
     @property
-    def point_labels(self) -> Mapping[str, np.ndarray] | None: ...
+    def point_labels(self) -> np.ndarray | None: ...
 
     def with_metrics(self, metrics: Mapping[str, float]) -> Self: ...
 
@@ -68,30 +68,22 @@ class MetricsCallback(BaseCallback[_MetricsReport]):
                 "metrics require point labels in the reconstruction report"
             )
 
-        expected_series = set(labels)
         for plan, propagations in result.point_scores.items():
-            for propagation, series_scores in propagations.items():
-                if set(series_scores) != expected_series:
+            for propagation, point_scores in propagations.items():
+                if point_scores.shape != labels.shape:
                     raise ValueError(
-                        "point scores and labels must define the same series: "
+                        "point scores and labels must have the same shape: "
                         f"{plan}.{propagation}"
                     )
-                for series_id, point_scores in series_scores.items():
-                    if point_scores.shape != labels[series_id].shape:
-                        raise ValueError(
-                            "point scores and labels must have the same shape: "
-                            f"{plan}.{propagation}.{series_id}"
-                        )
 
         metrics: dict[str, float] = {}
         for plan, propagations in result.point_scores.items():
-            for propagation, series_scores in propagations.items():
-                for series_id, point_scores in series_scores.items():
-                    evaluated = self.evaluator.evaluate(point_scores, labels[series_id])
-                    metrics.update(
-                        {
-                            f"{plan}.{propagation}.{series_id}.{metric}": value
-                            for metric, value in evaluated.items()
-                        }
-                    )
+            for propagation, point_scores in propagations.items():
+                evaluated = self.evaluator.evaluate(point_scores, labels)
+                metrics.update(
+                    {
+                        f"{plan}.{propagation}.{metric}": value
+                        for metric, value in evaluated.items()
+                    }
+                )
         return result.with_metrics(metrics)

@@ -6,20 +6,20 @@ from detectiv.ts2i.materialization import (
     MaterializedImageSplit,
 )
 from detectiv.ts2i.preparation import (
-    ImagePreparation,
-    ImagePreparationInspection,
     ImageSeriesInspection,
     ImageSplitInspection,
+    ProjectedImageInspection,
+    ProjectedImageStage,
 )
 
 __all__ = [
     "CandidateMeasurement",
     "DataLoaderSettings",
-    "ImagePreparation",
-    "ImagePreparationInspection",
     "ImageSeriesInspection",
     "ImageSplitInspection",
     "MaterializationReport",
     "MaterializationSettings",
     "MaterializedImageSplit",
+    "ProjectedImageInspection",
+    "ProjectedImageStage",
 ]

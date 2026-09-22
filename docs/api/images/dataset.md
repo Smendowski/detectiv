@@ -9,8 +9,8 @@ dimensions through its `shape` property.
 ::: detectiv.images.dataset
 
 `ImageDataset` keeps image loading lazy while preserving each image's original
-time-series `WindowReference`, partition-local `series_lengths`, and immutable
-per-series `point_labels` when the source is labelled. Point labels describe
+time-series `WindowReference`, explicit `series_id`, scalar `series_length`, and
+an immutable `point_labels` array when the source is labelled. Point labels describe
 source time points and are not the derived `window_labels`. An `ImageSource`
 supplies channel-first arrays with the dataset's declared `ImageShape`.
 

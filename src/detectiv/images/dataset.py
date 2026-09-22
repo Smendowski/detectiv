@@ -21,12 +21,12 @@ class ImageSource(ABC):
 
 
 class ImageDataset:
-    """Lazy images, source windows, and partition-local series metadata.
+    """Lazy images and source windows for one partition of one series.
 
     `point_labels` retains immutable labels for every source time point and is
     distinct from optional `window_labels` derived during windowing. Labelled
-    datasets require one aligned point-label array for every `series_lengths`
-    entry; unlabelled datasets preserve `None`.
+    labelled datasets require one aligned point-label array; unlabelled datasets
+    preserve `None`.
     """
 
     def __init__(
@@ -36,9 +36,10 @@ class ImageDataset:
         image_shape: ImageShape,
         window_references: Sequence[WindowReference],
         source: ImageSource,
+        series_id: str,
+        series_length: int,
         window_labels: np.ndarray | None = None,
-        series_lengths: Mapping[str, int] | None = None,
-        point_labels: Mapping[str, np.ndarray] | None = None,
+        point_labels: np.ndarray | None = None,
         metadata: Mapping[str, object] | None = None,
     ) -> None:
         if not dataset_id:
@@ -50,10 +51,21 @@ class ImageDataset:
         self.image_shape = image_shape
         self.window_references = tuple(window_references)
         self.source = source
-        self.series_lengths = _validate_series_lengths(
-            self.window_references, series_lengths
-        )
-        self.point_labels = _validate_point_labels(point_labels, self.series_lengths)
+        if not series_id:
+            raise ValueError("series_id must not be empty")
+        if isinstance(series_length, bool) or not isinstance(series_length, int):
+            raise ValueError("series_length must be a positive integer")
+        if series_length <= 0:
+            raise ValueError("series_length must be a positive integer")
+        if any(
+            reference.series_id != series_id for reference in self.window_references
+        ):
+            raise ValueError("all window references must belong to series_id")
+        if any(reference.stop > series_length for reference in self.window_references):
+            raise ValueError("window references must lie within series_length")
+        self.series_id = series_id
+        self.series_length = series_length
+        self.point_labels = _validate_point_labels(point_labels, series_length)
         self.window_labels: np.ndarray | None = None
         if window_labels is not None:
             labels = np.asarray(window_labels)
@@ -82,52 +94,19 @@ class ImageDataset:
         return image
 
 
-def _validate_series_lengths(
-    references: tuple[WindowReference, ...],
-    series_lengths: Mapping[str, int] | None,
-) -> Mapping[str, int]:
-    series_ids = {reference.series_id for reference in references}
-    if series_lengths is None:
-        lengths = {
-            series_id: max(
-                reference.stop
-                for reference in references
-                if reference.series_id == series_id
-            )
-            for series_id in series_ids
-        }
-    else:
-        lengths = dict(series_lengths)
-        if not series_ids <= set(lengths):
-            raise ValueError("series_lengths must define every referenced series")
-    if any(length <= 0 for length in lengths.values()):
-        raise ValueError("series lengths must be positive")
-    if any(reference.stop > lengths[reference.series_id] for reference in references):
-        raise ValueError("window references must lie within their series length")
-    return MappingProxyType(lengths)
-
-
 def _validate_point_labels(
-    point_labels: Mapping[str, np.ndarray] | None,
-    series_lengths: Mapping[str, int],
-) -> Mapping[str, np.ndarray] | None:
+    point_labels: np.ndarray | None,
+    series_length: int,
+) -> np.ndarray | None:
     if point_labels is None:
         return None
-    if set(point_labels) != set(series_lengths):
-        raise ValueError("point_labels must define every series and no others")
-
-    validated: dict[str, np.ndarray] = {}
-    for series_id, values in point_labels.items():
-        labels = np.asarray(values)
-        if labels.ndim != 1 or len(labels) != series_lengths[series_id]:
-            raise ValueError(
-                f"point_labels for {series_id!r} must match its series length"
-            )
-        if not np.issubdtype(labels.dtype, np.bool_) and not np.all(
-            (labels == 0) | (labels == 1)
-        ):
-            raise ValueError("point_labels must contain only binary values")
-        immutable = np.array(labels, dtype=bool, copy=True)
-        immutable.setflags(write=False)
-        validated[series_id] = immutable
-    return MappingProxyType(validated)
+    labels = np.asarray(point_labels)
+    if labels.ndim != 1 or len(labels) != series_length:
+        raise ValueError("point_labels must match series_length")
+    if not np.issubdtype(labels.dtype, np.bool_) and not np.all(
+        (labels == 0) | (labels == 1)
+    ):
+        raise ValueError("point_labels must contain only binary values")
+    immutable = np.array(labels, dtype=bool, copy=True)
+    immutable.setflags(write=False)
+    return immutable

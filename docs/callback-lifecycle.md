@@ -58,10 +58,10 @@ interval when other callbacks perform work.
 Use `TimingCallback` for a lightweight elapsed duration, including failed runs.
 Read `elapsed_seconds` after `scenario.run()` returns or raises.
 
-Use `MetricsCallback(evaluator)` to evaluate every reconstruction scoring plan,
-propagation, and series after point scoring. The callback reads labels from the
+Use `MetricsCallback(evaluator)` to evaluate every reconstruction scoring plan
+and propagation after point scoring. The callback reads labels from the
 `ReconstructionReport`, validates complete alignment before evaluation, and
-returns metrics named `<plan>.<propagation>.<series>.<metric>`. Write the report
+returns metrics named `<plan>.<propagation>.<metric>`. Write the report
 returned by `scenario.run()` to persist those metrics; do not pass labels to the
 callback separately.
 

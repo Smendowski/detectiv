@@ -1,11 +1,6 @@
-from collections.abc import Mapping
 from dataclasses import dataclass
 from operator import index
 from typing import SupportsIndex, cast
-
-from detectiv.time_series.dataset import TimeSeriesDataset
-from detectiv.time_series.series import TimeSeries
-from detectiv.time_series.split import TemporalSplit
 
 
 @dataclass(frozen=True)
@@ -53,72 +48,6 @@ class TemporalHoldout:
             train_end=self.test_start - validation_length,
             validation_end=self.test_start,
         )
-
-
-class TemporalSplitter:
-    """Split every dataset series according to an explicit per-series temporal rule."""
-
-    def __init__(
-        self,
-        rules: Mapping[str, TemporalBoundary | TemporalHoldout],
-    ) -> None:
-        """Create a splitter from non-empty rules keyed by series ID."""
-        if not rules:
-            raise ValueError("boundaries must not be empty")
-        self.rules = dict(rules)
-
-    def split(self, dataset: TimeSeriesDataset) -> TemporalSplit[TimeSeriesDataset]:
-        """Split a dataset while preserving series IDs and metadata.
-
-        Raises:
-            ValueError: If rules do not exactly match dataset series IDs or validation
-                is configured for only some series.
-        """
-        if set(dataset.series_ids) != set(self.rules):
-            raise ValueError("boundaries must match dataset series IDs")
-
-        splits = {}
-        for series_id in dataset.series_ids:
-            rule = self.rules[series_id]
-            boundary = self._boundary(rule)
-            splits[series_id] = dataset[series_id].split(
-                train_end=boundary.train_end,
-                validation_end=boundary.validation_end,
-            )
-        validation = None
-        if any(item.validation is not None for item in splits.values()):
-            validation_series: dict[str, TimeSeries] = {}
-            for series_id, item in splits.items():
-                if item.validation is None:
-                    raise ValueError(
-                        "all series must either include validation or omit it"
-                    )
-                validation_series[series_id] = item.validation
-            validation = TimeSeriesDataset(
-                f"{dataset.dataset_id}:validation",
-                validation_series,
-                metadata=dataset.metadata,
-            )
-
-        return TemporalSplit(
-            train=TimeSeriesDataset(
-                f"{dataset.dataset_id}:train",
-                {series_id: item.train for series_id, item in splits.items()},
-                metadata=dataset.metadata,
-            ),
-            validation=validation,
-            test=TimeSeriesDataset(
-                f"{dataset.dataset_id}:test",
-                {series_id: item.test for series_id, item in splits.items()},
-                metadata=dataset.metadata,
-            ),
-        )
-
-    @staticmethod
-    def _boundary(rule: TemporalBoundary | TemporalHoldout) -> TemporalBoundary:
-        if isinstance(rule, TemporalHoldout):
-            return rule.boundary()
-        return rule
 
 
 def _index_value(value: object, name: str) -> int:

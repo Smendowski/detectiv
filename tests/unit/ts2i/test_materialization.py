@@ -9,14 +9,13 @@ from detectiv.models.autoencoders import Autoencoder
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
 from detectiv.scoring import MeanSquaredWindowReconstructionError
-from detectiv.time_series import (
-    TemporalBoundary,
-    TemporalSplitter,
-    TimeSeries,
-    TimeSeriesDataset,
-)
+from detectiv.time_series import TemporalBoundary, TimeSeries
 from detectiv.time_series.windowing import WindowSpec
-from detectiv.ts2i import DataLoaderSettings, ImagePreparation, MaterializationSettings
+from detectiv.ts2i import (
+    DataLoaderSettings,
+    MaterializationSettings,
+    ProjectedImageStage,
+)
 from detectiv.ts2i.channelization import MeanStdMaxChannelization
 from detectiv.ts2i.projection import FixedProjectionStrategy, ProjectionScheme
 from detectiv.ts2i.transformations import Spiral
@@ -44,9 +43,7 @@ def test_chunked_process_materialization_matches_synchronous(tmp_path: Path) -> 
         assert np.array_equal(expected.window_labels, actual.window_labels)
         assert expected.point_labels is not None
         assert actual.point_labels is not None
-        np.testing.assert_array_equal(
-            expected.point_labels["series"], actual.point_labels["series"]
-        )
+        np.testing.assert_array_equal(expected.point_labels, actual.point_labels)
         assert all(
             np.array_equal(expected[index], actual[index])
             for index in range(len(expected))
@@ -160,16 +157,11 @@ def test_loader_settings_support_cuda_pinning() -> None:
     assert settings.pin_memory
 
 
-def _preparation() -> ImagePreparation:
-    dataset = TimeSeriesDataset(
-        "series",
-        {
-            "series": TimeSeries(
-                np.arange(16, dtype=float),
-                labels=np.array([False] * 8 + [True] * 8),
-                series_id="series",
-            )
-        },
+def _preparation() -> ProjectedImageStage:
+    series = TimeSeries(
+        np.arange(16, dtype=float),
+        labels=np.array([False] * 8 + [True] * 8),
+        series_id="series",
     )
     projection = FixedProjectionStrategy(
         ProjectionScheme(MeanStdMaxChannelization()).channels(
@@ -177,8 +169,7 @@ def _preparation() -> ImagePreparation:
         )
     )
     return (
-        ImagePreparation(dataset)
-        .split(TemporalSplitter({"series": TemporalBoundary(train_end=8)}))
+        series.split(TemporalBoundary(train_end=8))
         .window(train=WindowSpec(2), test=WindowSpec(2))
         .project(projection)
     )

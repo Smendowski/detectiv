@@ -79,16 +79,16 @@ def test_folder_artifact_round_trip_uses_point_label_sidecars(tmp_path: Path) ->
     )
 
     metadata = json.loads((folder / "artifact.json").read_text(encoding="utf-8"))
-    reference = metadata["point_labels"]["train"]["series"]
-    assert reference == "point_labels/train/000000.npy"
+    reference = metadata["point_labels"]["train"]
+    assert reference == "point_labels/train.npy"
     assert (folder / reference).is_file()
     assert labels.tolist() not in metadata.values()
 
     restored = ImageFolderReader(folder).read()
     assert restored.train.point_labels is not None
     assert restored.test.point_labels is not None
-    np.testing.assert_array_equal(restored.train.point_labels["series"], labels)
-    np.testing.assert_array_equal(restored.test.point_labels["series"], labels)
+    np.testing.assert_array_equal(restored.train.point_labels, labels)
+    np.testing.assert_array_equal(restored.test.point_labels, labels)
 
 
 def test_zip_artifact_round_trip_preserves_point_labels(tmp_path: Path) -> None:
@@ -100,11 +100,11 @@ def test_zip_artifact_round_trip_preserves_point_labels(tmp_path: Path) -> None:
     with ImageArtifactReader(archive).open() as restored:
         assert restored.train.point_labels is not None
         assert restored.test.point_labels is not None
-        np.testing.assert_array_equal(restored.train.point_labels["series"], labels)
-        np.testing.assert_array_equal(restored.test.point_labels["series"], labels)
+        np.testing.assert_array_equal(restored.train.point_labels, labels)
+        np.testing.assert_array_equal(restored.test.point_labels, labels)
 
 
-def test_reader_accepts_legacy_artifacts_without_point_labels(tmp_path: Path) -> None:
+def test_reader_accepts_current_artifacts_without_point_labels(tmp_path: Path) -> None:
     folder = ImageFolderWriter(ImageOutputConfig(tmp_path / "images")).write(
         _split(np.ones((3, 2, 2)))
     )
@@ -126,10 +126,14 @@ def test_reader_rejects_png_artifacts_without_rgb_shape(tmp_path: Path) -> None:
     (tmp_path / "artifact.json").write_text(
         json.dumps(
             {
+                "schema_version": 2,
                 "format": "png",
                 "image_shape": {"channels": 1, "height": 2, "width": 2},
                 "dataset_ids": {"train": "images", "test": "images"},
-                "series_lengths": {"train": {}, "test": {}},
+                "series": {
+                    "train": {"id": "series", "length": 2},
+                    "test": {"id": "series", "length": 2},
+                },
                 "dataset_metadata": {"train": {}, "test": {}},
             }
         ),
@@ -147,10 +151,14 @@ def test_reader_rejects_manifest_entries_for_missing_images(tmp_path: Path) -> N
     (tmp_path / "artifact.json").write_text(
         json.dumps(
             {
+                "schema_version": 2,
                 "format": "npy",
                 "image_shape": {"channels": 3, "height": 2, "width": 2},
                 "dataset_ids": {"train": "images", "test": "images"},
-                "series_lengths": {"train": {"series": 2}, "test": {}},
+                "series": {
+                    "train": {"id": "series", "length": 2},
+                    "test": {"id": "series", "length": 2},
+                },
                 "dataset_metadata": {"train": {}, "test": {}},
             }
         ),
@@ -177,8 +185,9 @@ def _split(
         image_shape=ImageShape(3, 2, 2),
         window_references=(WindowReference("series", 0, 2, 2),),
         source=ArrayImageSource(image),
-        series_lengths={"series": 2},
-        point_labels=None if point_labels is None else {"series": point_labels},
+        series_id="series",
+        series_length=2,
+        point_labels=point_labels,
         metadata=metadata,
     )
     return TemporalSplit(train=dataset, test=dataset)

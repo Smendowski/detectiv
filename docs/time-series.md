@@ -13,9 +13,7 @@ import numpy as np
 
 from detectiv.time_series import (
     TemporalHoldout,
-    TemporalSplitter,
     TimeSeries,
-    TimeSeriesDataset,
 )
 
 series = TimeSeries(
@@ -23,19 +21,15 @@ series = TimeSeries(
     labels=np.array([0, 0, 0, 1]),
     feature_names=("temperature", "constant_sensor"),
     series_id="machine-1",
+    metadata={"source": "example"},
 )
-dataset = TimeSeriesDataset("machines", {"machine-1": series})
 
-splits = dataset.split(
-    TemporalSplitter(
-        {"machine-1": TemporalHoldout(test_start=3, validation_fraction=0.5)}
-    )
-)
+rule = TemporalHoldout(test_start=3, validation_fraction=0.5)
+splits = series.split(rule)
 ```
 
-Each dataset series must share the same feature count and feature-name order.
-`TemporalSplitter` requires one rule for every series and produces validation
-for every series or none of them.
+One scenario consumes one `TimeSeries`. Its immutable metadata and series ID are
+preserved by temporal segments and preprocessing transformations.
 
 ## Fit Preprocessing
 
@@ -70,7 +64,7 @@ the length, producing contiguous non-overlapping windows.
 from detectiv.time_series.windowing import TailPolicy, WindowSpec
 
 spec = WindowSpec(length=64, stride=16, tail=TailPolicy.EDGE_PAD)
-windows = spec.windower().transform(train["machine-1"])
+windows = spec.windower().transform(train)
 
 print(windows.values.shape)
 print(windows.starts, windows.valid_lengths)

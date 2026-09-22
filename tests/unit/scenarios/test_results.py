@@ -11,20 +11,18 @@ from detectiv.scenarios import ReconstructionReport
 def _report(**metrics: float) -> ReconstructionReport:
     return ReconstructionReport(
         window_scores={},
-        point_scores={"plan": {"mean": {"series": np.array([0.1, 0.9])}}},
+        point_scores={"plan": {"mean": np.array([0.1, 0.9])}},
         training=TrainingHistory((0.5,)),
         metrics=metrics,
     )
 
 
 def test_report_metrics_are_flat_immutable_and_used_consistently() -> None:
-    report = _report(**{"plan.mean.series.ROC-AUC": 0.9})
+    report = _report(**{"plan.mean.ROC-AUC": 0.9})
 
     assert isinstance(report.metrics, MappingProxyType)
     assert report.record()["metrics"] == report.metrics
-    assert report.summary().endswith(
-        "Metrics (plan / mean / series):\n  ROC-AUC: 0.900"
-    )
+    assert report.summary().endswith("Metrics (plan / mean):\n  ROC-AUC: 0.900")
     with pytest.raises(TypeError):
         report.metrics["other"] = 0.5  # type: ignore[index]
 
@@ -32,14 +30,14 @@ def test_report_metrics_are_flat_immutable_and_used_consistently() -> None:
 def test_report_summary_compacts_only_a_useful_shared_metric_prefix() -> None:
     compact = _report(
         **{
-            "plan.mean.series.ROC-AUC": 0.9,
-            "plan.mean.series.VUS-PR": 0.8,
+            "plan.mean.ROC-AUC": 0.9,
+            "plan.mean.VUS-PR": 0.8,
         }
     )
     unshared = _report(**{"train.loss": 0.5, "test.ROC-AUC": 0.9})
 
     assert compact.summary().endswith(
-        "Metrics (plan / mean / series):\n  ROC-AUC: 0.900\n  VUS-PR: 0.800"
+        "Metrics (plan / mean):\n  ROC-AUC: 0.900\n  VUS-PR: 0.800"
     )
     assert unshared.summary().endswith(
         "Metrics:\n  train.loss: 0.500\n  test.ROC-AUC: 0.900"
@@ -112,11 +110,11 @@ def test_reconstruction_summary_handles_unavailable_image_metadata(
 def test_with_metrics_returns_an_immutable_replacement() -> None:
     original = _report()
 
-    enriched = original.with_metrics({"plan.mean.series.metric": 1})
+    enriched = original.with_metrics({"plan.mean.metric": 1})
 
     assert enriched is not original
     assert original.metrics == {}
-    assert enriched.metrics == {"plan.mean.series.metric": 1.0}
+    assert enriched.metrics == {"plan.mean.metric": 1.0}
 
 
 @pytest.mark.parametrize(

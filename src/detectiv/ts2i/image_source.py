@@ -5,7 +5,7 @@ from hashlib import blake2b
 import numpy as np
 
 from detectiv.images import ImageSize, ImageSource
-from detectiv.time_series import TimeSeriesDataset
+from detectiv.time_series import TimeSeries
 from detectiv.time_series.windowing import (
     WindowLabelingStrategy,
     WindowReference,
@@ -19,7 +19,7 @@ class ProjectedWindowImageSource(ImageSource):
 
     def __init__(
         self,
-        dataset: TimeSeriesDataset,
+        series: TimeSeries,
         *,
         window: WindowSpec,
         projection: ProjectionScheme,
@@ -27,37 +27,30 @@ class ProjectedWindowImageSource(ImageSource):
         seed: int,
         split: str,
     ) -> None:
-        """Window a dataset and configure deterministic per-window rendering."""
+        """Window a series and configure deterministic per-window rendering."""
         self._projection = projection
         self._size = size
         self._seed = seed
         self._split = split
 
         windower = window.windower()
-        self._batches = {
-            series_id: windower.transform(dataset[series_id])
-            for series_id in dataset.series_ids
-        }
-
-        self._entries = tuple(
-            (series_id, index)
-            for series_id in dataset.series_ids
-            for index in range(self._batches[series_id].n_windows)
-        )
+        if series.series_id is None:
+            raise ValueError("series must define series_id")
+        self._series_id = series.series_id
+        self._batch = windower.transform(series)
 
         self.window_references = self._references()
-        self.window_labels = self._labels(dataset, window.labeling)
+        self.window_labels = self._labels(series, window.labeling)
 
     def _references(self) -> tuple[WindowReference, ...]:
         references: list[WindowReference] = []
-        for series_id, index in self._entries:
-            batch = self._batches[series_id]
-            assert batch.valid_lengths is not None
-            start = int(batch.starts[index])
-            valid_length = int(batch.valid_lengths[index])
+        assert self._batch.valid_lengths is not None
+        for index in range(self._batch.n_windows):
+            start = int(self._batch.starts[index])
+            valid_length = int(self._batch.valid_lengths[index])
             references.append(
                 WindowReference(
-                    series_id=series_id,
+                    series_id=self._series_id,
                     start=start,
                     stop=start + valid_length,
                     valid_length=valid_length,
@@ -67,36 +60,22 @@ class ProjectedWindowImageSource(ImageSource):
 
     def _labels(
         self,
-        dataset: TimeSeriesDataset,
+        series: TimeSeries,
         strategy: WindowLabelingStrategy,
     ) -> np.ndarray | None:
-        labels = tuple(dataset[series_id].labels for series_id in dataset.series_ids)
-        if all(label is None for label in labels):
+        if series.labels is None:
             return None
-        if any(label is None for label in labels):
-            raise ValueError(
-                "all series must provide labels or none may provide labels"
-            )
         return np.asarray(
             [
-                strategy.label(self._series_labels(dataset, reference))
+                strategy.label(series.labels[reference.start : reference.stop])
                 for reference in self.window_references
             ],
             dtype=bool,
         )
 
-    @staticmethod
-    def _series_labels(
-        dataset: TimeSeriesDataset, reference: WindowReference
-    ) -> np.ndarray:
-        labels = dataset[reference.series_id].labels
-        if labels is None:
-            raise RuntimeError("labels were validated before window labeling")
-        return labels[reference.start : reference.stop]
-
     def __len__(self) -> int:
-        """Return the number of generated windows across all series."""
-        return len(self._entries)
+        """Return the number of generated windows."""
+        return self._batch.n_windows
 
     def __getitem__(self, index: int) -> np.ndarray:
         """Render one channel-first image with a stable window-specific seed."""
@@ -104,8 +83,7 @@ class ProjectedWindowImageSource(ImageSource):
             raise IndexError("image index out of range")
         if index < 0:
             index += len(self)
-        series_id, window_index = self._entries[index]
-        window = self._batches[series_id].values[window_index]
+        window = self._batch.values[index]
         rng = np.random.default_rng(self._seed_sequence(self.window_references[index]))
         return self._projection.render(window, self._size, rng=rng)
 

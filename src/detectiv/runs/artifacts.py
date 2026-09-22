@@ -20,7 +20,7 @@ import numpy as np
 
 from detectiv.runs.identity import CompletedRunSummary, RunIdentity, RunOutputLocator
 
-_REPORT_SCHEMA_VERSION = 2
+_REPORT_SCHEMA_VERSION = 3
 
 type JSONValue = (
     bool | int | float | str | Sequence[JSONValue] | Mapping[str, JSONValue] | None
@@ -40,7 +40,7 @@ class _TrainingSummary(Protocol):
 
 class RunArtifactResult(Protocol):
     @property
-    def point_scores(self) -> Mapping[str, Mapping[str, Mapping[str, np.ndarray]]]: ...
+    def point_scores(self) -> Mapping[str, Mapping[str, np.ndarray]]: ...
 
     @property
     def training(self) -> _TrainingSummary: ...
@@ -270,26 +270,24 @@ class RunArtifactWriter:
 
 
 def _score_arrays(
-    scores: Mapping[str, Mapping[str, Mapping[str, np.ndarray]]],
-) -> tuple[dict[str, np.ndarray], dict[str, dict[str, dict[str, str]]]]:
+    scores: Mapping[str, Mapping[str, np.ndarray]],
+) -> tuple[dict[str, np.ndarray], dict[str, dict[str, str]]]:
     arrays: dict[str, np.ndarray] = {}
-    keys: dict[str, dict[str, dict[str, str]]] = {}
+    keys: dict[str, dict[str, str]] = {}
     for index, (plan, propagations) in enumerate(scores.items()):
         keys[plan] = {}
-        for propagation_index, (propagation, values) in enumerate(propagations.items()):
-            keys[plan][propagation] = {}
-            for series_index, (series_id, score) in enumerate(values.items()):
-                if (
-                    not np.issubdtype(score.dtype, np.number)
-                    or not np.isfinite(score).all()
-                ):
-                    raise ValueError(
-                        "point scores must contain only finite numeric values: "
-                        f"{plan}.{propagation}.{series_id}"
-                    )
-                key = f"score_{index}_{propagation_index}_{series_index}"
-                arrays[key] = score
-                keys[plan][propagation][series_id] = key
+        for propagation_index, (propagation, score) in enumerate(propagations.items()):
+            if (
+                not np.issubdtype(score.dtype, np.number)
+                or not np.isfinite(score).all()
+            ):
+                raise ValueError(
+                    "point scores must contain only finite numeric values: "
+                    f"{plan}.{propagation}"
+                )
+            key = f"score_{index}_{propagation_index}"
+            arrays[key] = score
+            keys[plan][propagation] = key
     return arrays, keys
 
 
@@ -408,16 +406,15 @@ def _write_figures(directory: Path, result: RunArtifactResult) -> tuple[Path, ..
     figures_directory.mkdir(exist_ok=True)
     paths = [_write_training_figure(pyplot, figures_directory, result)]
     for plan_index, propagations in enumerate(result.point_scores.values()):
-        for propagation_index, values in enumerate(propagations.values()):
-            for series_index, scores in enumerate(values.values()):
-                paths.append(
-                    _write_score_figure(
-                        pyplot,
-                        figures_directory,
-                        scores,
-                        f"score_{plan_index}_{propagation_index}_{series_index}.png",
-                    )
+        for propagation_index, scores in enumerate(propagations.values()):
+            paths.append(
+                _write_score_figure(
+                    pyplot,
+                    figures_directory,
+                    scores,
+                    f"score_{plan_index}_{propagation_index}.png",
                 )
+            )
     return tuple(paths)
 
 
