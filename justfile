@@ -16,7 +16,7 @@ lint:
     uv run ruff format --check .
 
 typecheck:
-    uv run mypy src tests scenarios
+    uv run mypy src tests samples
 
 test:
     uv run coverage erase
