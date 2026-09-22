@@ -1,6 +1,22 @@
+import numpy as np
 import pytest
 
-from detectiv.time_series.windowing import SplitPart, SplitWindowing, WindowSpec
+from detectiv.time_series import TemporalBoundary, TimeSeries
+from detectiv.time_series.windowing import (
+    SplitPart,
+    SplitWindowing,
+    WindowedTimeSeriesSplit,
+    WindowSpec,
+)
+
+
+class RecordingProjection:
+    def __init__(self) -> None:
+        self.source: WindowedTimeSeriesSplit | None = None
+
+    def project(self, source: WindowedTimeSeriesSplit) -> str:
+        self.source = source
+        return "projected"
 
 
 def test_split_windowing_returns_the_spec_for_each_partition() -> None:
@@ -27,3 +43,17 @@ def test_split_windowing_rejects_unknown_split_parts() -> None:
 
     with pytest.raises(ValueError, match="unsupported split part"):
         windowing.spec_for("evaluation")
+
+
+def test_windowed_split_delegates_projection_without_owning_the_result_type() -> None:
+    windowed = (
+        TimeSeries(np.arange(8), series_id="series")
+        .split(TemporalBoundary(4))
+        .window(train=WindowSpec(2), test=WindowSpec(2))
+    )
+    projection = RecordingProjection()
+
+    result = windowed.project(projection)
+
+    assert result == "projected"
+    assert projection.source is windowed

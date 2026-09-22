@@ -201,9 +201,9 @@ def test_repeated_preprocessing_composes_in_order_without_mutating_prior_stages(
     ).project(projection)
     projected.build(ImageSize(height=4, width=4))
 
-    assert source._preprocessors == ()
-    assert first_stage._preprocessors == (first,)
-    assert second_stage._preprocessors == (first, second)
+    assert source.preprocessors == ()
+    assert first_stage.preprocessors == (first,)
+    assert second_stage.preprocessors == (first, second)
     np.testing.assert_array_equal(source.train.values.ravel(), [0, 1, 2, 3])
     assert first.fitted_means == [1.5]
     assert first.transformed_means == [1.5, 4.5, 7.5]

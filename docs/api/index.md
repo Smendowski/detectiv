@@ -30,6 +30,7 @@ from detectiv.time_series import (
 from detectiv.time_series.windowing import (
     TailPolicy,
     WindowedTimeSeriesSplit,
+    WindowProjection,
     WindowSpec,
 )
 from detectiv.ts2i import ProjectedImageInspection, ProjectedImageStage

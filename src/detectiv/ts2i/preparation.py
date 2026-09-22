@@ -48,7 +48,7 @@ class ProjectedImageStage:
         windowing = self.source.windowing
         split = self._preprocess(
             self.source.split,
-            self.source.split._preprocessors,
+            self.source.split.preprocessors,
         )
         fitted_projection = self.projection.fit(split.train)
 

@@ -64,6 +64,19 @@ def test_time_series_namespace_excludes_removed_multi_series_contracts() -> None
     assert detectiv.ts2i.ProjectedImageStage.__name__ == "ProjectedImageStage"
 
 
+def test_time_series_package_has_no_ts2i_imports() -> None:
+    source_root = Path(__file__).parents[2] / "src" / "detectiv" / "time_series"
+
+    imported_modules = {
+        module for path in source_root.rglob("*.py") for module in _all_imports(path)
+    }
+
+    assert not any(
+        module == "detectiv.ts2i" or module.startswith("detectiv.ts2i.")
+        for module in imported_modules
+    )
+
+
 def test_scenarios_do_not_contain_policy_modules() -> None:
     source_root = Path(__file__).parents[2] / "src" / "detectiv" / "scenarios"
 
@@ -122,6 +135,17 @@ def _imports_from(path: Path) -> set[str]:
     visitor = _ImportVisitor()
     visitor.visit(tree)
     return visitor.imports
+
+
+def _all_imports(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module is not None:
+            modules.add(node.module)
+        elif isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+    return modules
 
 
 class _ImportVisitor(ast.NodeVisitor):

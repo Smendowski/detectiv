@@ -1,11 +1,31 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 from detectiv.time_series import TimeSeries
+from detectiv.time_series.windowing import WindowedTimeSeriesSplit
 from detectiv.ts2i.projection.schemes import ProjectionScheme
+
+if TYPE_CHECKING:
+    from detectiv.ts2i.preparation import ProjectedImageStage
 
 
 class ProjectionStrategy(ABC):
     """Fit training-dependent state and provide a usable projection scheme."""
+
+    def project(self, source: WindowedTimeSeriesSplit) -> ProjectedImageStage:
+        """Create the projected execution stage for windowed partitions.
+
+        Args:
+            source: Windowed temporal partitions to project.
+
+        Returns:
+            Projected image stage configured with this strategy.
+        """
+        from detectiv.ts2i.preparation import ProjectedImageStage
+
+        return ProjectedImageStage(source=source, projection=self)
 
     @abstractmethod
     def fit(self, train: TimeSeries) -> ProjectionScheme:

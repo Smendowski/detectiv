@@ -16,6 +16,7 @@ from detectiv.time_series.windowing.split import (
     SplitPart,
     SplitWindowing,
     WindowedTimeSeriesSplit,
+    WindowProjection,
 )
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "WindowLabelingStrategy",
     "WindowLengthStrategy",
     "WindowMode",
+    "WindowProjection",
     "WindowReference",
     "WindowSpec",
     "WindowedTimeSeriesSplit",

@@ -157,7 +157,7 @@ class TimeSeries:
 class TimeSeriesSplit(TemporalSplit[TimeSeries]):
     """Temporal series partitions ready for optional preprocessing and windowing."""
 
-    _preprocessors: tuple[TimeSeriesPreprocessor, ...] = field(
+    preprocessors: tuple[TimeSeriesPreprocessor, ...] = field(
         default=(), repr=False, compare=False
     )
 
@@ -171,7 +171,7 @@ class TimeSeriesSplit(TemporalSplit[TimeSeries]):
             A new immutable split stage carrying all preprocessors in declaration
             order.
         """
-        return replace(self, _preprocessors=(*self._preprocessors, preprocessor))
+        return replace(self, preprocessors=(*self.preprocessors, preprocessor))
 
     def window(
         self,

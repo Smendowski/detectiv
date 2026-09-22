@@ -23,6 +23,11 @@ preprocessing and transitions through `WindowedTimeSeriesSplit` to
 `ProjectedImageStage`. Preprocessing and projection state is fitted on the
 training segment only.
 
+`WindowedTimeSeriesSplit.project(...)` depends only on the lower-level
+`WindowProjection` protocol. TS2I projection strategies implement that protocol
+and own creation of `ProjectedImageStage`, so the time-series package does not
+depend on TS2I.
+
 ## Image Datasets
 
 Each `ImageDataset` belongs to exactly one explicit `series_id` and has one
