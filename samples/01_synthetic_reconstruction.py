@@ -4,6 +4,7 @@ from shutil import rmtree
 import numpy as np
 
 from detectiv.callbacks import TimingCallback
+from detectiv.images import ImageShape
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
@@ -34,8 +35,7 @@ TRAIN_END = 240
 WINDOW_SIZE = 32
 TRAIN_STRIDE = 16
 TEST_STRIDE = 8
-IMAGE_SIZE = (32, 32)
-N_CHANNELS = 3
+IMAGE_SHAPE = ImageShape(channels=3, height=32, width=32)
 BATCH_SIZE = 16
 EPOCHS = 20
 OUTPUT_DIRECTORY = Path(__file__).resolve().parents[1] / "outputs" / Path(__file__).stem
@@ -70,11 +70,11 @@ def main() -> None:
             FixedProjectionStrategy(
                 ProjectionScheme(IdentityChannelization())
                 .channels(StateGrid())
-                .replicate(n_channels=N_CHANNELS)
+                .replicate(n_channels=IMAGE_SHAPE.channels)
             )
         )
         .materialize(
-            IMAGE_SIZE,
+            IMAGE_SHAPE.size,
             MaterializationSettings(output),
             reproducibility=reproducibility,
         )
@@ -84,8 +84,12 @@ def main() -> None:
     scenario = ReconstructionScenario(
         images=images,
         model=Autoencoder(
-            CNNEncoder(N_CHANNELS, hidden_channels=(8, 16)),
-            CNNDecoder(16, hidden_channels=(8,), output_channels=N_CHANNELS),
+            CNNEncoder(IMAGE_SHAPE.channels, hidden_channels=(8, 16)),
+            CNNDecoder(
+                16,
+                hidden_channels=(8,),
+                output_channels=IMAGE_SHAPE.channels,
+            ),
         ),
         trainer=AutoencoderTrainer(epochs=EPOCHS, batch_size=BATCH_SIZE),
         training_mode=SemiSupervisedTraining(),

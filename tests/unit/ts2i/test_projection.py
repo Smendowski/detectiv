@@ -1,5 +1,6 @@
 import numpy as np
 
+from detectiv.images import ImageSize
 from detectiv.time_series import TimeSeries, TimeSeriesDataset
 from detectiv.ts2i.channelization import (
     FeatureSelectionScope,
@@ -41,10 +42,11 @@ def test_fitted_projection_scheme_isolated_from_later_fits() -> None:
     assert isinstance(strategy, ProjectionStrategy)
 
     first = strategy.fit(first_train)
-    image_before = first.render(first_train["series"].values, (4, 4))
+    size = ImageSize(height=4, width=4)
+    image_before = first.render(first_train["series"].values, size)
     second = strategy.fit(second_train)
-    image_after = first.render(first_train["series"].values, (4, 4))
-    second_image = second.render(second_train["series"].values, (4, 4))
+    image_after = first.render(first_train["series"].values, size)
+    second_image = second.render(second_train["series"].values, size)
 
     np.testing.assert_array_equal(image_after, image_before)
     assert not np.array_equal(second_image, image_before)

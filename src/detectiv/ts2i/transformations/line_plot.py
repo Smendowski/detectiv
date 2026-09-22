@@ -2,6 +2,7 @@ import numpy as np
 from skimage.draw import disk, line
 from skimage.transform import resize
 
+from detectiv.images import ImageSize
 from detectiv.ts2i.transformations.base import (
     TransformationInput,
     TS2ITransformation,
@@ -59,7 +60,7 @@ class LinePlot(TS2ITransformation):
     def transform(
         self,
         values: np.ndarray,
-        size: tuple[int, int],
+        size: ImageSize,
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:

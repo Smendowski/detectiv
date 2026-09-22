@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from detectiv.images import ImageSize
 from detectiv.ts2i.channelization import IdentityChannelization
 from detectiv.ts2i.projection import ProjectionScheme
 from detectiv.ts2i.transformations import Spiral, SpiralInputNormalization
@@ -9,7 +10,7 @@ from detectiv.ts2i.transformations import Spiral, SpiralInputNormalization
 def test_spiral_matches_the_published_mapping() -> None:
     values = np.array([0.0, 0.5, 1.0])
 
-    image = Spiral().transform(values, (4, 4))
+    image = Spiral().transform(values, ImageSize(height=4, width=4))
 
     center = 2
     y_coordinates, x_coordinates = np.ogrid[:4, :4]
@@ -28,7 +29,7 @@ def test_spiral_matches_the_published_mapping() -> None:
 def test_spiral_can_normalize_each_input_window() -> None:
     image = Spiral(
         input_normalization=SpiralInputNormalization.UNIT_INTERVAL
-    ).transform(np.array([2.0, 3.0, 4.0]), (4, 4))
+    ).transform(np.array([2.0, 3.0, 4.0]), ImageSize(height=4, width=4))
 
     assert image.min() == 0
     assert image.max() == 1
@@ -39,7 +40,10 @@ def test_spiral_accepts_a_single_feature_window() -> None:
         ProjectionScheme(IdentityChannelization())
         .channels(Spiral())
         .replicate(n_channels=3)
-        .render(np.arange(8, dtype=np.float32).reshape(8, 1), (8, 8))
+        .render(
+            np.arange(8, dtype=np.float32).reshape(8, 1),
+            ImageSize(height=8, width=8),
+        )
     )
 
     assert image.shape == (3, 8, 8)

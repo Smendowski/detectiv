@@ -1,5 +1,6 @@
 import numpy as np
 
+from detectiv.images import ImageSize
 from detectiv.time_series import (
     TemporalBoundary,
     TemporalSplitter,
@@ -29,7 +30,7 @@ def test_preparation_allows_a_split_with_no_windows() -> None:
         .split(TemporalSplitter({"series": TemporalBoundary(train_end=3)}))
         .window(train=WindowSpec(4), test=WindowSpec(4))
         .project(projection)
-        .build((4, 4))
+        .build(ImageSize(height=4, width=4))
     )
 
     assert len(images.train) == 0
@@ -54,7 +55,7 @@ def test_preparation_inspection_reports_window_coverage() -> None:
         .split(TemporalSplitter({"series": TemporalBoundary(train_end=4)}))
         .window(train=WindowSpec(2), test=WindowSpec(2, stride=1))
         .project(projection)
-        .inspect((4, 4))
+        .inspect(ImageSize(height=4, width=4))
     )
 
     assert inspection.train.image_count == 2
@@ -82,7 +83,7 @@ def test_preparation_retains_partition_local_point_labels() -> None:
         .split(TemporalSplitter({"series": TemporalBoundary(train_end=3)}))
         .window(train=WindowSpec(2), test=WindowSpec(2))
         .project(projection)
-        .build((4, 4))
+        .build(ImageSize(height=4, width=4))
     )
 
     assert images.train.point_labels is not None
@@ -107,7 +108,7 @@ def test_preparation_preserves_unlabeled_partitions() -> None:
         .split(TemporalSplitter({"series": TemporalBoundary(train_end=3)}))
         .window(train=WindowSpec(2), test=WindowSpec(2))
         .project(projection)
-        .build((4, 4))
+        .build(ImageSize(height=4, width=4))
     )
 
     assert images.train.point_labels is None

@@ -1,5 +1,11 @@
 # Image Datasets
 
+::: detectiv.images.types
+
+`ImageSize` stores render dimensions in `(height, width)` order. `ImageShape`
+adds the channel count and exposes channel-first `(channels, height, width)`
+dimensions through its `shape` property.
+
 ::: detectiv.images.dataset
 
 `ImageDataset` keeps image loading lazy while preserving each image's original

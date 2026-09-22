@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from detectiv.images import ImageDataset, ImageShape, ImageSource
+from detectiv.images import ImageDataset, ImageShape, ImageSize, ImageSource
 from detectiv.images.io import ImageFormat, ImageOutputConfig
 from detectiv.images.io.readers import ImageArtifactReader, ImageFolderReader
 from detectiv.images.io.writers import ImageArchiveWriter, ImageFolderWriter
@@ -62,13 +62,15 @@ def test_random_noise_pipeline_builds_lazy_reproducible_images() -> None:
             test=WindowSpec(2, stride=1, tail=TailPolicy.EDGE_PAD),
         )
         .project(projection)
-        .build((3, 4), seed=7)
+        .build(ImageSize(height=3, width=4), seed=7)
     )
 
     assert len(images.train) == 2
     assert len(images.test) == 3
+    assert images.test.image_shape.shape == (3, 3, 4)
     assert images.test.window_references[-1].valid_length == 2
     first = images.test[0]
+    assert first.shape == (3, 3, 4)
     np.testing.assert_array_equal(first, images.test[0])
     np.testing.assert_array_equal(images.test[-1], images.test[len(images.test) - 1])
     assert not np.array_equal(images.train[0], images.test[0])
@@ -102,7 +104,7 @@ def test_image_folder_writer_preserves_window_order(tmp_path: Path) -> None:
                 .replicate(n_channels=3)
             )
         )
-        .build((3, 4), seed=7)
+        .build(ImageSize(height=3, width=4), seed=7)
     )
 
     output = ImageFolderWriter(
@@ -154,7 +156,7 @@ def test_image_artifacts_round_trip_lazily(tmp_path: Path) -> None:
                 .replicate(n_channels=3)
             )
         )
-        .build((3, 4), seed=7)
+        .build(ImageSize(height=3, width=4), seed=7)
     )
 
     folder = ImageFolderWriter(

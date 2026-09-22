@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import torch
 
+from detectiv.images import ImageSize
 from detectiv.models.autoencoders import Autoencoder
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
@@ -24,10 +25,12 @@ from detectiv.ts2i.transformations import Spiral
 def test_chunked_process_materialization_matches_synchronous(tmp_path: Path) -> None:
     preparation = _preparation()
     synchronous = preparation.materialize(
-        (4, 4), MaterializationSettings(tmp_path / "synchronous", workers=0)
+        ImageSize(height=4, width=4),
+        MaterializationSettings(tmp_path / "synchronous", workers=0),
     )
     concurrent = preparation.materialize(
-        (4, 4), MaterializationSettings(tmp_path / "concurrent", workers=2)
+        ImageSize(height=4, width=4),
+        MaterializationSettings(tmp_path / "concurrent", workers=2),
     )
 
     for expected, actual in zip(
@@ -67,7 +70,7 @@ def test_chunked_process_materialization_matches_synchronous(tmp_path: Path) -> 
 
 def test_auto_falls_back_when_no_candidate_meets_threshold(tmp_path: Path) -> None:
     images = _preparation().materialize(
-        (4, 4),
+        ImageSize(height=4, width=4),
         MaterializationSettings(
             tmp_path / "auto", workers="auto", improvement_threshold=2.0
         ),
@@ -88,7 +91,8 @@ def test_materialization_rejects_invalid_worker_modes(
 
 def test_max_is_bounded_by_independent_windows(tmp_path: Path) -> None:
     images = _preparation().materialize(
-        (4, 4), MaterializationSettings(tmp_path / "max", workers="max")
+        ImageSize(height=4, width=4),
+        MaterializationSettings(tmp_path / "max", workers="max"),
     )
 
     assert images.materialization.selected_workers <= len(images.train) + len(
@@ -109,7 +113,8 @@ def test_materialization_removes_staging_directory_on_failure(
 
     with pytest.raises(KeyboardInterrupt):
         _preparation().materialize(
-            (4, 4), MaterializationSettings(destination, workers=0)
+            ImageSize(height=4, width=4),
+            MaterializationSettings(destination, workers=0),
         )
 
     assert not destination.exists()
@@ -125,7 +130,8 @@ def test_materialization_rejects_an_incomplete_split(
 
     with pytest.raises(RuntimeError, match="did not write expected image"):
         _preparation().materialize(
-            (4, 4), MaterializationSettings(destination, workers=0)
+            ImageSize(height=4, width=4),
+            MaterializationSettings(destination, workers=0),
         )
 
     assert not destination.exists()
@@ -134,7 +140,8 @@ def test_materialization_rejects_an_incomplete_split(
 def test_explicit_workers_cannot_exceed_independent_windows(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="independent windows"):
         _preparation().materialize(
-            (4, 4), MaterializationSettings(tmp_path / "images", workers=99)
+            ImageSize(height=4, width=4),
+            MaterializationSettings(tmp_path / "images", workers=99),
         )
 
 

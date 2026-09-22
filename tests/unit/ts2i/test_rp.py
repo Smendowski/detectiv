@@ -2,13 +2,14 @@ import numpy as np
 from pyts.image import RecurrencePlot
 from skimage.transform import resize
 
+from detectiv.images import ImageSize
 from detectiv.ts2i.transformations import RP
 
 
 def test_rp_matches_spiral_and_prism_defaults() -> None:
     values = np.array([0.0, 0.2, 0.6, 1.0])
 
-    image = RP().transform(values, (5, 6))
+    image = RP().transform(values, ImageSize(height=5, width=6))
 
     expected = RecurrencePlot(threshold="point", percentage=10).fit_transform(
         values[np.newaxis, :]

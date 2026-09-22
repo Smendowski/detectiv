@@ -2,13 +2,14 @@ import numpy as np
 from pyts.image import MarkovTransitionField
 from skimage.transform import resize
 
+from detectiv.images import ImageSize
 from detectiv.ts2i.transformations import MTF
 
 
 def test_mtf_matches_the_spiral_primitive() -> None:
     values = np.array([0.0, 0.2, 0.6, 1.0])
 
-    image = MTF().transform(values, (5, 6))
+    image = MTF().transform(values, ImageSize(height=5, width=6))
 
     expected = MarkovTransitionField().fit_transform(values[np.newaxis, :])[0]
     expected = resize(  # type: ignore[no-untyped-call]
@@ -22,6 +23,8 @@ def test_mtf_matches_the_spiral_primitive() -> None:
 
 
 def test_mtf_accepts_a_single_feature_window() -> None:
-    image = MTF().transform(np.array([[0.0], [0.5], [1.0]]), (4, 4))
+    image = MTF().transform(
+        np.array([[0.0], [0.5], [1.0]]), ImageSize(height=4, width=4)
+    )
 
     assert image.shape == (4, 4)

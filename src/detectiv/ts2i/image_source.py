@@ -4,7 +4,7 @@ from hashlib import blake2b
 
 import numpy as np
 
-from detectiv.images import ImageSource
+from detectiv.images import ImageSize, ImageSource
 from detectiv.time_series import TimeSeriesDataset
 from detectiv.time_series.windowing import (
     WindowLabelingStrategy,
@@ -23,7 +23,7 @@ class ProjectedWindowImageSource(ImageSource):
         *,
         window: WindowSpec,
         projection: ProjectionScheme,
-        size: tuple[int, int],
+        size: ImageSize,
         seed: int,
         split: str,
     ) -> None:

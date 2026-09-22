@@ -6,5 +6,6 @@ trap 'rm -rf "$tmpdir"' EXIT
 
 uv venv "$tmpdir/venv"
 uv pip install --python "$tmpdir/venv/bin/python" dist/*.whl
-cp examples/first_experiment.py "$tmpdir/first_experiment.py"
-(cd "$tmpdir" && "$tmpdir/venv/bin/python" first_experiment.py)
+mkdir "$tmpdir/samples"
+cp samples/01_synthetic_reconstruction.py "$tmpdir/samples/"
+(cd "$tmpdir" && "$tmpdir/venv/bin/python" samples/01_synthetic_reconstruction.py)

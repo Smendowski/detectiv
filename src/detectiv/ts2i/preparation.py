@@ -7,7 +7,7 @@ from typing import cast
 
 import numpy as np
 
-from detectiv.images import ImageDataset, ImageShape
+from detectiv.images import ImageDataset, ImageShape, ImageSize
 from detectiv.runs import ReproducibilitySettings
 from detectiv.time_series import TemporalSplit, TemporalSplitter, TimeSeriesDataset
 from detectiv.time_series.preprocessing import TimeSeriesPreprocessor
@@ -90,9 +90,7 @@ class ImagePreparation:
         """
         return replace(self, _preprocessor=preprocessor)
 
-    def build(
-        self, size: tuple[int, int], *, seed: int = 0
-    ) -> TemporalSplit[ImageDataset]:
+    def build(self, size: ImageSize, *, seed: int = 0) -> TemporalSplit[ImageDataset]:
         """Fit the pipeline and return lazy image datasets for every split.
 
         Args:
@@ -142,9 +140,7 @@ class ImagePreparation:
             ),
         )
 
-    def inspect(
-        self, size: tuple[int, int], *, seed: int = 0
-    ) -> ImagePreparationInspection:
+    def inspect(self, size: ImageSize, *, seed: int = 0) -> ImagePreparationInspection:
         """Build images and summarize their shape, count, and value range.
 
         Args:
@@ -165,7 +161,7 @@ class ImagePreparation:
 
     def materialize(
         self,
-        size: tuple[int, int],
+        size: ImageSize,
         settings: MaterializationSettings,
         *,
         reproducibility: ReproducibilitySettings | None = None,
@@ -218,7 +214,7 @@ class ImagePreparation:
         dataset: TimeSeriesDataset,
         window: WindowSpec,
         projection: ProjectionScheme,
-        size: tuple[int, int],
+        size: ImageSize,
         seed: int,
         split: SplitPart,
     ) -> ImageDataset:
@@ -232,7 +228,11 @@ class ImagePreparation:
         )
         return ImageDataset(
             f"{dataset.dataset_id}:images",
-            image_shape=ImageShape(projection.n_channels, *size),
+            image_shape=ImageShape(
+                channels=projection.n_channels,
+                height=size.height,
+                width=size.width,
+            ),
             window_references=source.window_references,
             source=source,
             window_labels=source.window_labels,

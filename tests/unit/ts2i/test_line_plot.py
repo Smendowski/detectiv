@@ -1,13 +1,14 @@
 import numpy as np
 from skimage.draw import disk, line
 
+from detectiv.images import ImageSize
 from detectiv.ts2i.transformations import LinePlot
 
 
 def test_line_plot_matches_the_spiral_primitive() -> None:
     values = np.array([0.0, 0.4, 1.0])
 
-    image = LinePlot().transform(values, (5, 5))
+    image = LinePlot().transform(values, ImageSize(height=5, width=5))
 
     expected = np.zeros((5, 5), dtype=np.float32)
     resampled = np.interp(np.linspace(0, 1, 5), np.linspace(0, 1, 3), values)
@@ -26,6 +27,6 @@ def test_line_plot_matches_the_spiral_primitive() -> None:
 
 
 def test_line_plot_draws_a_single_observation() -> None:
-    image = LinePlot().transform(np.array([0.5]), (5, 5))
+    image = LinePlot().transform(np.array([0.5]), ImageSize(height=5, width=5))
 
     assert image.sum() > 0

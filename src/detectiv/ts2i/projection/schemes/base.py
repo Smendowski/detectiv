@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
+from detectiv.images import ImageSize
 from detectiv.ts2i.channelization import Channelization
 from detectiv.ts2i.transformations import TransformationInput, TS2ITransformation
 
@@ -73,7 +74,7 @@ class ProjectionScheme:
     def render(
         self,
         window: np.ndarray,
-        size: tuple[int, int],
+        size: ImageSize,
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:
@@ -118,7 +119,7 @@ class ProjectionScheme:
     def _render_plane(
         values: np.ndarray,
         transformation: TS2ITransformation,
-        size: tuple[int, int],
+        size: ImageSize,
         rng: np.random.Generator | None,
     ) -> np.ndarray:
         supports_univariate = (

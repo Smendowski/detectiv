@@ -2,6 +2,7 @@ from enum import StrEnum
 
 import numpy as np
 
+from detectiv.images import ImageSize
 from detectiv.ts2i.transformations.base import (
     TransformationInput,
     TS2ITransformation,
@@ -46,7 +47,7 @@ class Spiral(TS2ITransformation):
     def transform(
         self,
         values: np.ndarray,
-        size: tuple[int, int],
+        size: ImageSize,
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:

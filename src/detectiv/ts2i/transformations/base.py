@@ -3,6 +3,8 @@ from enum import StrEnum
 
 import numpy as np
 
+from detectiv.images import ImageSize
+
 
 class TransformationInput(StrEnum):
     """Supported shape categories for a transformation input plane."""
@@ -31,7 +33,7 @@ class TS2ITransformation(ABC):
     def transform(
         self,
         values: np.ndarray,
-        size: tuple[int, int],
+        size: ImageSize,
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:

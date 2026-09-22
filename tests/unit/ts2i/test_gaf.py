@@ -3,13 +3,14 @@ import pytest
 from pyts.image import GramianAngularField
 from skimage.transform import resize
 
+from detectiv.images import ImageSize
 from detectiv.ts2i.transformations import GASF, GAFOutputNormalization
 
 
 def test_gasf_matches_spiral_output_normalization() -> None:
     values = np.array([0.0, 0.2, 0.6, 1.0])
 
-    image = GASF().transform(values, (5, 6))
+    image = GASF().transform(values, ImageSize(height=5, width=6))
 
     expected = GramianAngularField(method="summation").fit_transform(
         values[np.newaxis, :]
@@ -27,7 +28,9 @@ def test_gasf_matches_spiral_output_normalization() -> None:
 def test_gasf_can_preserve_the_prism_output_range() -> None:
     values = np.array([0.0, 0.2, 0.6, 1.0])
 
-    image = GASF(GAFOutputNormalization.NONE).transform(values, (4, 4))
+    image = GASF(GAFOutputNormalization.NONE).transform(
+        values, ImageSize(height=4, width=4)
+    )
 
     assert image.min() < 0
     assert image.max() <= 1

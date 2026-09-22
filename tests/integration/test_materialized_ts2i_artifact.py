@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
+from detectiv.images import ImageSize
 from detectiv.images.io.readers import ImageFolderReader
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
@@ -50,7 +51,7 @@ def test_materialized_ts2i_images_reload_as_trainable_image_folder(
         )
     )
     materialized = preparation.materialize(
-        (4, 4),
+        ImageSize(height=4, width=4),
         MaterializationSettings(tmp_path / "images", workers=2),
         reproducibility=ReproducibilitySettings(seed=7),
     )

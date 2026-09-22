@@ -1,33 +1,11 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from types import MappingProxyType
 
 import numpy as np
 
+from detectiv.images.types import ImageShape
 from detectiv.time_series.windowing.reference import WindowReference
-
-
-@dataclass(frozen=True)
-class ImageShape:
-    """Channel-first shape shared by every image in a dataset."""
-
-    channels: int
-    height: int
-    width: int
-
-    def __post_init__(self) -> None:
-        if self.channels <= 0 or self.height <= 0 or self.width <= 0:
-            raise ValueError("image dimensions must be positive")
-
-    @property
-    def shape(self) -> tuple[int, int, int]:
-        """Return the channel-first dimensions.
-
-        Returns:
-            Channel, height, and width dimensions.
-        """
-        return (self.channels, self.height, self.width)
 
 
 class ImageSource(ABC):
