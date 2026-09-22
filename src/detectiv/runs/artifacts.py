@@ -57,6 +57,14 @@ class RunArtifactResult(Protocol):
     @property
     def resolved_inputs(self) -> Mapping[str, JSONValue]: ...
 
+    def record(self) -> Mapping[str, JSONValue]:
+        """Return JSON-compatible report metadata for persistence.
+
+        Returns:
+            Report metadata excluding separately persisted point-score arrays.
+        """
+        ...
+
 
 @dataclass(frozen=True)
 class RunArtifacts:
@@ -213,15 +221,7 @@ class RunArtifactWriter:
             "schema_version": _REPORT_SCHEMA_VERSION,
             "runtime": _runtime_provenance(),
             "provenance": _json_mapping(self.provenance),
-            "resolved_inputs": _json_mapping(result.resolved_inputs),
-            "training": {
-                "losses": result.training_losses,
-                "validation_losses": result.validation_losses,
-                "best_epoch": result.training.best_epoch,
-                "best_validation_loss": result.training.best_validation_loss,
-                "device": result.training.device,
-            },
-            "reproducibility": _json_mapping(result.reproducibility),
+            **_json_mapping(result.record()),
             "scores": {"path": scores_path.name, "keys": score_keys},
             "artifacts": _artifact_manifest(directory, (scores_path, *figures)),
         }

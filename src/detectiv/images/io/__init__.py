@@ -6,11 +6,15 @@ from pathlib import Path
 
 
 class ImageFormat(StrEnum):
+    """Portable image artifact encodings."""
+
     PNG = "png"
     NPY = "npy"
 
 
 class ImageArtifactLabel(StrEnum):
+    """Serialized window-label values used by image artifacts."""
+
     NORMAL = "0"
     ANOMALOUS = "1"
     UNLABELED = "unlabeled"
@@ -30,6 +34,8 @@ class ImageArtifactLabel(StrEnum):
 
 @dataclass(frozen=True)
 class ImageOutputConfig:
+    """Destination and encoding for an image folder artifact."""
+
     path: Path
     format: ImageFormat = ImageFormat.NPY
 

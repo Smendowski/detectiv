@@ -13,6 +13,8 @@ from detectiv.ts2i.transformations.registry import register_transformation
 
 
 class WaveletOutputNormalization(StrEnum):
+    """Output scaling applied to continuous wavelet scalograms."""
+
     NONE = "none"
     CLIP_UNIT_INTERVAL = "clip_unit_interval"
     UNIT_INTERVAL = "unit_interval"
@@ -27,10 +29,20 @@ class _ContinuousWavelet(TS2ITransformation):
             WaveletOutputNormalization.UNIT_INTERVAL
         ),
     ) -> None:
+        """Configure optional scaling of the rendered scalogram.
+
+        Args:
+            output_normalization: Scaling applied after the wavelet transform.
+        """
         self.output_normalization = WaveletOutputNormalization(output_normalization)
 
     @property
     def input_kinds(self) -> frozenset[TransformationInput]:
+        """Return the univariate input requirement.
+
+        Returns:
+            The univariate input category.
+        """
         return frozenset({TransformationInput.UNIVARIATE})
 
     def transform(
@@ -40,6 +52,16 @@ class _ContinuousWavelet(TS2ITransformation):
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:
+        """Render a continuous wavelet scalogram at the requested size.
+
+        Args:
+            values: One-feature time-series values.
+            size: Output image height and width.
+            rng: Unused random generator accepted by the common contract.
+
+        Returns:
+            A float32 image plane.
+        """
         series = univariate_values(values, "wavelet transforms")
         n_scales = max(2, min(max(16, series.size // 2), 64, series.size))
         scales = np.arange(1, n_scales + 1, dtype=np.float32)
@@ -66,9 +88,13 @@ class _ContinuousWavelet(TS2ITransformation):
 
 @register_transformation("RWT")
 class RWT(_ContinuousWavelet):
+    """Render a Ricker-wavelet scalogram from a univariate series."""
+
     wavelet = "mexh"
 
 
 @register_transformation("MWT")
 class MWT(_ContinuousWavelet):
+    """Render a Morlet-wavelet scalogram from a univariate series."""
+
     wavelet = "morl"

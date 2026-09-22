@@ -13,6 +13,8 @@ from detectiv.ts2i.transformations.registry import register_transformation
 
 
 class GAFOutputNormalization(StrEnum):
+    """Output scaling applied to Gramian angular fields."""
+
     NONE = "none"
     UNIT_INTERVAL = "unit_interval"
 
@@ -26,10 +28,20 @@ class _GAF(TS2ITransformation):
             GAFOutputNormalization.UNIT_INTERVAL
         ),
     ) -> None:
+        """Configure optional scaling of the rendered field.
+
+        Args:
+            output_normalization: Keep signed values or scale them to ``[0, 1]``.
+        """
         self.output_normalization = GAFOutputNormalization(output_normalization)
 
     @property
     def input_kinds(self) -> frozenset[TransformationInput]:
+        """Return the univariate input requirement.
+
+        Returns:
+            The univariate input category.
+        """
         return frozenset({TransformationInput.UNIVARIATE})
 
     def transform(
@@ -39,6 +51,16 @@ class _GAF(TS2ITransformation):
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:
+        """Render a Gramian angular field at the requested size.
+
+        Args:
+            values: One-feature time-series values.
+            size: Output image height and width.
+            rng: Unused random generator accepted by the common contract.
+
+        Returns:
+            A float32 image plane.
+        """
         series = univariate_values(values, "GAF")
         image = GramianAngularField(method=self.method).fit_transform(
             series[np.newaxis, :]
@@ -56,9 +78,13 @@ class _GAF(TS2ITransformation):
 
 @register_transformation("GASF")
 class GASF(_GAF):
+    """Render a univariate series as a Gramian angular summation field."""
+
     method = "summation"
 
 
 @register_transformation("GADF")
 class GADF(_GAF):
+    """Render a univariate series as a Gramian angular difference field."""
+
     method = "difference"

@@ -9,16 +9,21 @@ from detectiv.scoring.propagation import (
 
 @dataclass(frozen=True)
 class PointScoringPlan:
+    """Assign window evidence to points and aggregate overlaps."""
+
     assignment: PointAssignment
     aggregator: PointScoreAggregator
 
     @property
     def name(self) -> str:
+        """Return the stable assignment and aggregation identifier."""
         return f"{self.assignment.name}_{self.aggregator.name}"
 
 
 @dataclass(frozen=True)
 class ReconstructionScoringPlan:
+    """Combine one reconstruction scorer with point propagation policies."""
+
     scorer: ReconstructionScorer
     point_scoring: tuple[PointScoringPlan, ...]
 
@@ -30,4 +35,5 @@ class ReconstructionScoringPlan:
 
     @property
     def name(self) -> str:
+        """Return the reconstruction scorer identifier."""
         return self.scorer.name

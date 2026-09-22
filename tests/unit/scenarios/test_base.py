@@ -37,6 +37,7 @@ class RecordingCallback(BaseCallback[str]):
         self.events.append(f"{self.name}:finished:{result}")
         if self.finish_error is not None:
             raise self.finish_error
+        return None
 
     def on_run_failed(self, error: BaseException) -> None:
         self.events.append(f"{self.name}:failed:{type(error).__name__}")
@@ -62,6 +63,21 @@ class ExampleScenario(BaseScenario[str]):
         if self.error is not None:
             raise self.error
         return "result"
+
+
+class ReplacingCallback(BaseCallback[str]):
+    def __init__(self, name: str, events: list[str], suffix: str) -> None:
+        self._name = name
+        self.events = events
+        self.suffix = suffix
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def on_run_finished(self, result: str) -> str:
+        self.events.append(f"{self.name}:finished:{result}")
+        return f"{result}:{self.suffix}"
 
 
 def test_base_scenario_dispatches_lifecycle_for_a_new_scenario_type() -> None:
@@ -160,6 +176,31 @@ def test_base_scenario_preserves_callback_order_for_non_reconstruction_results()
     ]
 
 
+def test_base_scenario_chains_replacements_and_returns_the_final_result() -> None:
+    events: list[str] = []
+
+    result = ExampleScenario(
+        callbacks=(
+            RecordingCallback("observer", events),
+            ReplacingCallback("first", events, "one"),
+            ReplacingCallback("second", events, "two"),
+            RecordingCallback("final_observer", events),
+        )
+    ).run()
+
+    assert result == "result:one:two"
+    assert events == [
+        "observer:started",
+        "final_observer:started",
+        "observer:finished:result",
+        "first:finished:result",
+        "second:finished:result:one",
+        "final_observer:finished:result:one:two",
+        "final_observer:closed",
+        "observer:closed",
+    ]
+
+
 def test_completion_callback_failure_propagates_without_failure_notification() -> None:
     events: list[str] = []
 
@@ -170,14 +211,17 @@ def test_completion_callback_failure_propagates_without_failure_notification() -
                 RecordingCallback(
                     "failing", events, finish_error=RuntimeError("finished")
                 ),
+                RecordingCallback("later", events),
             )
         ).run()
 
     assert events == [
         "first:started",
         "failing:started",
+        "later:started",
         "first:finished:result",
         "failing:finished:result",
+        "later:closed",
         "failing:closed",
         "first:closed",
     ]

@@ -1,10 +1,6 @@
 from detectiv.callbacks.artifacts import RunArtifactCallback
-from detectiv.callbacks.base import BaseCallback
-from detectiv.callbacks.evaluation import (
-    EvaluationCallback,
-    EvaluationRecord,
-    EvaluationReport,
-)
+from detectiv.callbacks.base import BaseCallback, Callback
+from detectiv.callbacks.metrics import MetricsCallback
 from detectiv.callbacks.timing import TimingCallback
 from detectiv.callbacks.tracking import (
     MlflowCallback,
@@ -14,9 +10,8 @@ from detectiv.callbacks.tracking import (
 
 __all__ = [
     "BaseCallback",
-    "EvaluationCallback",
-    "EvaluationRecord",
-    "EvaluationReport",
+    "Callback",
+    "MetricsCallback",
     "MlflowCallback",
     "ReconstructionMlflowCallback",
     "ReconstructionMlflowModelLogging",

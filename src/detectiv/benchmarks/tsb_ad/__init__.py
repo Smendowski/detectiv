@@ -4,9 +4,7 @@ from detectiv.benchmarks.tsb_ad.collection import (
     TSBADCollectionLoader,
     TSBADDataset,
 )
-from detectiv.benchmarks.tsb_ad.evaluation import (
-    TSBADEvaluator,
-)
+from detectiv.benchmarks.tsb_ad.evaluation import TSBADEvaluator
 from detectiv.benchmarks.tsb_ad.loader import TSBADCsvLoader
 
 __all__ = [

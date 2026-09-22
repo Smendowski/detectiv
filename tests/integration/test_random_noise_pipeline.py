@@ -173,6 +173,10 @@ def test_image_artifacts_round_trip_lazily(tmp_path: Path) -> None:
 
     archive = ImageArchiveWriter(tmp_path / "images.zip", ImageFormat.NPY).write(images)
     with ImageArtifactReader(archive).open() as extracted:
+        assert extracted.provenance == {
+            "source": "zip",
+            "location": str(archive),
+        }
         np.testing.assert_array_equal(extracted.test[0], images.test[0])
         assert extracted.test.window_references == images.test.window_references
 

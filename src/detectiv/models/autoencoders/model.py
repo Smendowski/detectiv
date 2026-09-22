@@ -11,6 +11,8 @@ from detectiv.models.autoencoders.base import (
 
 
 class Autoencoder(nn.Module):
+    """Compose an image encoder, optional bottleneck, and image decoder."""
+
     def __init__(
         self,
         encoder: ImageEncoder,
@@ -24,6 +26,7 @@ class Autoencoder(nn.Module):
         self.bottleneck = bottleneck
 
     def forward(self, images: Tensor) -> Tensor:
+        """Reconstruct a batch of channel-first images."""
         if images.ndim != 4:
             raise ValueError("images must have shape (batch, channels, height, width)")
         embeddings = self.encoder(images)
@@ -46,4 +49,5 @@ class Autoencoder(nn.Module):
         return reconstruction
 
     def reconstruct(self, images: Tensor) -> Tensor:
+        """Return a reconstruction of a batch of images."""
         return self.forward(images)

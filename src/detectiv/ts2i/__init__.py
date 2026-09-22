@@ -3,6 +3,7 @@ from detectiv.ts2i.materialization import (
     DataLoaderSettings,
     MaterializationReport,
     MaterializationSettings,
+    MaterializedImageSplit,
 )
 from detectiv.ts2i.preparation import (
     ImagePreparation,
@@ -20,4 +21,5 @@ __all__ = [
     "ImageSplitInspection",
     "MaterializationReport",
     "MaterializationSettings",
+    "MaterializedImageSplit",
 ]

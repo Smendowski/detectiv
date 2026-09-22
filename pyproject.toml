@@ -50,7 +50,6 @@ vision = [
     "timm>=1.0.29",
     "torchvision>=0.29.0",
 ]
-
 [dependency-groups]
 test = [
   "coverage[toml]>=7.10",
@@ -92,7 +91,7 @@ strict = true
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
- module = ["mlflow.*", "pyts.*", "pywt", "sklearn.*", "statsmodels.*", "timm.*", "torchvision.*"]
+module = ["mlflow.*", "pyts.*", "pywt", "sklearn.*", "statsmodels.*", "timm.*", "torchvision.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

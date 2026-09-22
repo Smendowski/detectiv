@@ -10,17 +10,22 @@ from detectiv.protocols.validation import ValidationHoldout
 
 @dataclass(frozen=True)
 class TrainingPartition:
+    """Selected training windows and optional validation windows."""
+
     training_indices: NDArray[np.intp]
     validation_images: ImageDataset | None = None
     validation_indices: NDArray[np.intp] | None = None
 
 
 class TrainingMode(ABC):
+    """Define which image windows train a scenario and how it validates them."""
+
     def __init__(self, *, validation_holdout: ValidationHoldout | None = None) -> None:
         self.validation_holdout = validation_holdout
 
     @abstractmethod
     def select(self, images: ImageDataset) -> NDArray[np.intp]:
+        """Return indices of images eligible for training."""
         raise NotImplementedError
 
     def partition(
@@ -28,6 +33,7 @@ class TrainingMode(ABC):
         train: ImageDataset,
         validation: ImageDataset | None = None,
     ) -> TrainingPartition:
+        """Select training images and resolve temporal or random validation."""
         training_indices = self.select(train)
         if validation is not None and self.validation_holdout is not None:
             raise ValueError(

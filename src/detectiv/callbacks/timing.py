@@ -18,7 +18,11 @@ class TimingCallback(BaseCallback[object]):
 
     @property
     def name(self) -> str:
-        """Return the fixed registration name `timing`."""
+        """Return the fixed registration name `timing`.
+
+        Returns:
+            The callback registration name.
+        """
         return "timing"
 
     def on_run_started(self) -> None:
@@ -27,11 +31,20 @@ class TimingCallback(BaseCallback[object]):
         self._started_at = perf_counter()
 
     def on_run_finished(self, result: object) -> None:
-        """Stop the timer after successful execution; `result` is unused."""
+        """Stop the timer after successful execution.
+
+        Args:
+            result: Successful scenario result; unused by this observer.
+        """
         self._finish()
+        return None
 
     def on_run_failed(self, error: BaseException) -> None:
-        """Stop the timer after failure; `error` is not suppressed or changed."""
+        """Stop the timer after failure.
+
+        Args:
+            error: Scenario error; neither suppressed nor changed.
+        """
         self._finish()
 
     def _finish(self) -> None:

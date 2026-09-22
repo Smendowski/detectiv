@@ -40,7 +40,9 @@ nav:
   - Installation: installation.md
   - Design: design.md
   - Callback Lifecycle: callback-lifecycle.md
+  - Images: images.md
   - Time Series: time-series.md
+  - Time Series To Images: ts2i.md
   - Benchmarks:
       - Overview: benchmarks/index.md
       - TSB-AD: benchmarks/tsb-ad.md
@@ -64,13 +66,53 @@ nav:
               - Length Strategies: api/time-series/windowing/lengths.md
               - Window Reference: api/time-series/windowing/reference.md
               - Split Windowing: api/time-series/windowing/split.md
+      - Time Series To Images:
+          - Overview: api/ts2i/index.md
+          - Materialization: api/ts2i/materialization.md
+          - Channelization: api/ts2i/channelization.md
+          - Projection: api/ts2i/projection.md
+          - Transformations: api/ts2i/transformations.md
       - Callbacks:
           - Base: api/callbacks/base.md
           - Artifacts: api/callbacks/artifacts.md
           - Timing: api/callbacks/timing.md
           - MLflow: api/callbacks/mlflow.md
+          - Reconstruction MLflow: api/callbacks/tracking/reconstruction.md
+      - Losses:
+          - Reconstruction: api/losses/reconstruction.md
+      - Models:
+          - Overview: api/models/index.md
+          - Autoencoders:
+              - Overview: api/models/autoencoders/index.md
+              - Training: api/models/autoencoders/training.md
+              - Transfer Learning: api/models/autoencoders/transfer-learning.md
+              - Encoders:
+                  - CNN: api/models/autoencoders/encoders/cnn.md
+                  - ResNet: api/models/autoencoders/encoders/resnet.md
+                  - PVT: api/models/autoencoders/encoders/pvt.md
+              - Decoders:
+                  - CNN: api/models/autoencoders/decoders/cnn.md
+              - Bottlenecks:
+                  - Dense Spatial: api/models/autoencoders/bottlenecks/dense.md
+          - Runtime: api/models/runtime.md
+      - Images:
+          - Dataset: api/images/dataset.md
+          - Torch Adapter: api/images/torch.md
+          - Artifacts: api/images/io.md
+      - Protocols:
+          - Overview: api/protocols/index.md
+          - Training: api/protocols/training.md
+          - Validation: api/protocols/validation.md
+      - Scoring:
+          - Overview: api/scoring/index.md
+          - Reconstruction: api/scoring/reconstruction.md
+          - Window Evidence: api/scoring/window-scores.md
+          - Point Propagation: api/scoring/propagation.md
+          - Plans: api/scoring/plans.md
       - Scenarios:
-          - Reconstruction Evaluation: api/scenarios/reconstruction-evaluation.md
-          - Reconstruction Tracking: api/scenarios/reconstruction-tracking.md
+          - Overview: api/scenarios/index.md
+          - Base: api/scenarios/base.md
+          - Reconstruction: api/scenarios/reconstruction.md
+          - Results: api/scenarios/results.md
       - Runs: api/runs.md
   - Development: development.md

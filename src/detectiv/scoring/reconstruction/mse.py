@@ -9,18 +9,20 @@ from torch.utils.data import DataLoader
 from detectiv.images import ImageDataset, TorchImageDataset
 from detectiv.losses import MeanSquaredReconstructionLoss
 from detectiv.models.autoencoders.model import Autoencoder
-from detectiv.models.runtime import resolve_device
+from detectiv.models.runtime import ComputeDevice, resolve_device
 from detectiv.scoring.base import ReconstructionScorer
 from detectiv.scoring.window_scores import WindowScoreBatch
 from detectiv.ts2i import DataLoaderSettings
 
 
 class MeanSquaredReconstructionError(ReconstructionScorer):
+    """Shared batched inference for mean-squared reconstruction scorers."""
+
     def __init__(
         self,
         *,
         batch_size: int = 32,
-        device: str = "auto",
+        device: ComputeDevice | str = ComputeDevice.AUTO,
         loss: MeanSquaredReconstructionLoss | None = None,
         data_loader: DataLoaderSettings | None = None,
     ) -> None:
@@ -37,7 +39,7 @@ class MeanSquaredReconstructionError(ReconstructionScorer):
         model.to(device)
         model.eval()
         try:
-            with torch.no_grad():
+            with torch.inference_mode():
                 for batch in DataLoader(
                     TorchImageDataset(images),
                     batch_size=self.batch_size,
@@ -58,16 +60,17 @@ class MeanSquaredReconstructionError(ReconstructionScorer):
 
 
 class MeanSquaredWindowReconstructionError(MeanSquaredReconstructionError):
+    """Reduce mean-squared reconstruction error to one score per image window."""
+
     @property
     def name(self) -> str:
+        """Return the stable scorer identifier."""
         return "mean_squared_window"
 
     def score(self, model: Autoencoder, images: ImageDataset) -> WindowScoreBatch:
-        values = [
-            error.mean(dim=(1, 2, 3)).cpu().numpy()
-            for error in self._errors(model, images)
-        ]
+        """Return one mean-squared reconstruction score per image window."""
+        values = [error.mean(dim=(1, 2, 3)) for error in self._errors(model, images)]
         return WindowScoreBatch(
-            np.concatenate(values) if values else np.empty(0),
+            torch.cat(values).cpu().numpy() if values else np.empty(0),
             images.window_references,
         )

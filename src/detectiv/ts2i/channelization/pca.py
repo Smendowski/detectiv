@@ -8,13 +8,34 @@ from detectiv.ts2i.channelization.base import Channelization
 
 
 class PCAChannelization(Channelization):
+    """Fit PCA on training observations and emit component time series."""
+
     def __init__(self, n_components: int) -> None:
+        """Configure the positive number of principal components to retain.
+
+        Args:
+            n_components: Number of PCA components emitted as planes.
+
+        Raises:
+            ValueError: If ``n_components`` is not positive.
+        """
         if n_components <= 0:
             raise ValueError("n_components must be positive")
         self.n_components = n_components
         self._model: SklearnPCA | None = None
 
     def fit(self, train: TimeSeriesDataset) -> Self:
+        """Fit PCA using all training observations from every series.
+
+        Args:
+            train: Training-only source series.
+
+        Returns:
+            This fitted channelization.
+
+        Raises:
+            ValueError: If there are too few samples or features.
+        """
         values = np.concatenate(
             tuple(train[series_id].values for series_id in train.series_ids)
         )
@@ -28,6 +49,17 @@ class PCAChannelization(Channelization):
         return self
 
     def transform(self, window: np.ndarray) -> tuple[np.ndarray, ...]:
+        """Project a window and return one plane per fitted component.
+
+        Args:
+            window: Time-major feature values to project.
+
+        Returns:
+            One component time series per configured component.
+
+        Raises:
+            RuntimeError: If called before fitting.
+        """
         if self._model is None:
             raise RuntimeError("PCA channelization must be fitted")
         components = self._model.transform(window).astype(np.float32)

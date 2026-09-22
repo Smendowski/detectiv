@@ -15,6 +15,8 @@ from detectiv.ts2i.projection import ProjectionScheme
 
 
 class ProjectedWindowImageSource(ImageSource):
+    """Lazily render referenced windows from a fitted projection scheme."""
+
     def __init__(
         self,
         dataset: TimeSeriesDataset,
@@ -25,6 +27,7 @@ class ProjectedWindowImageSource(ImageSource):
         seed: int,
         split: str,
     ) -> None:
+        """Window a dataset and configure deterministic per-window rendering."""
         self._projection = projection
         self._size = size
         self._seed = seed
@@ -92,9 +95,11 @@ class ProjectedWindowImageSource(ImageSource):
         return labels[reference.start : reference.stop]
 
     def __len__(self) -> int:
+        """Return the number of generated windows across all series."""
         return len(self._entries)
 
     def __getitem__(self, index: int) -> np.ndarray:
+        """Render one channel-first image with a stable window-specific seed."""
         if not -len(self) <= index < len(self):
             raise IndexError("image index out of range")
         if index < 0:

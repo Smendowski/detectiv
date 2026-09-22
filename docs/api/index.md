@@ -6,14 +6,19 @@ implementation module.
 
 ```python
 from detectiv.benchmarks.tsb_ad import TSBADAdapter, TSBADCsvLoader
-from detectiv.callbacks import BaseCallback, MlflowCallback, RunArtifactCallback
+from detectiv.callbacks import (
+    BaseCallback,
+    MlflowCallback,
+    RunArtifactCallback,
+)
 from detectiv.images import ImageDataset, ImageShape, TorchImageDataset
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.protocols import RandomHoldout, SemiSupervisedTraining
 from detectiv.runs import ReproducibilitySettings, RunArtifacts, RunArtifactWriter
 from detectiv.scenarios import (
+    ExperimentReport,
+    ReconstructionReport,
     ReconstructionScenario,
-    ReconstructionScenarioResult,
 )
 from detectiv.scoring import ReconstructionScoringPlan
 from detectiv.time_series import TemporalHoldout, TemporalSplitter, TimeSeries

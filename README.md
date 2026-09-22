@@ -2,6 +2,16 @@
 
 DETECTIV is a Python library under active development.
 
+## Installation
+
+```console
+python -m pip install detectiv
+```
+
+Install optional MLflow and visualization integrations with
+`python -m pip install 'detectiv[experiment]'`. The documentation's first
+experiment is the supported API-first quickstart.
+
 ## Development
 
 The project requires Python 3.12 or newer and uses [uv](https://docs.astral.sh/uv/).

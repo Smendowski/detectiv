@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from detectiv.images import ImageDataset
+from detectiv.images import ImageDataset, ImageSplit
 from detectiv.images.io.readers.images import ImageFolderReader
 from detectiv.time_series import TemporalSplit
 
@@ -15,20 +15,41 @@ MAX_ARCHIVE_UNCOMPRESSED_BYTES = 1 << 30
 
 
 class ImageArtifactReader:
+    """Restore a temporal image split from a folder or guarded ZIP artifact."""
+
     def __init__(self, path: Path) -> None:
         self.path = path
 
     @contextmanager
-    def open(self) -> Iterator[TemporalSplit[ImageDataset]]:
+    def open(self) -> Iterator[ImageSplit]:
+        """Open a folder or guarded ZIP artifact as a lazy image split.
+
+        Returns:
+            An iterator context yielding the restored image split with source
+            provenance.
+
+        Raises:
+            ValueError: If the path or ZIP contents are invalid.
+        """
         if self.path.is_dir():
-            yield ImageFolderReader(self.path).read()
+            yield self._with_provenance(ImageFolderReader(self.path).read(), "folder")
             return
         if not zipfile.is_zipfile(self.path):
             raise ValueError("image artifact must be a directory or ZIP archive")
         with TemporaryDirectory(prefix="detectiv-artifact-") as name:
             root = Path(name)
             self._extract(root)
-            yield ImageFolderReader(root).read()
+            yield self._with_provenance(ImageFolderReader(root).read(), "zip")
+
+    def _with_provenance(
+        self, images: TemporalSplit[ImageDataset], source: str
+    ) -> ImageSplit:
+        return ImageSplit(
+            train=images.train,
+            validation=images.validation,
+            test=images.test,
+            provenance={"source": source, "location": str(self.path)},
+        )
 
     def _extract(self, root: Path) -> None:
         root = root.resolve()

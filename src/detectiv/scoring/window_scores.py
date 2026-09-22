@@ -9,9 +9,12 @@ from detectiv.time_series.windowing import WindowReference
 
 
 class WindowEvidenceBatch(ABC):
+    """Evidence values paired with their original time-series windows."""
+
     references: tuple[WindowReference, ...]
 
     def indices_for_series(self, series_id: str) -> list[int]:
+        """Return positions of windows belonging to one source series."""
         return [
             index
             for index, reference in enumerate(self.references)
@@ -20,11 +23,14 @@ class WindowEvidenceBatch(ABC):
 
     @abstractmethod
     def for_series(self, series_id: str) -> WindowEvidenceBatch:
+        """Return evidence restricted to one source series."""
         raise NotImplementedError
 
 
 @dataclass(frozen=True)
 class WindowScoreBatch(WindowEvidenceBatch):
+    """One finite scalar evidence value per window."""
+
     values: np.ndarray
     references: tuple[WindowReference, ...]
 
@@ -41,6 +47,7 @@ class WindowScoreBatch(WindowEvidenceBatch):
         object.__setattr__(self, "values", values)
 
     def for_series(self, series_id: str) -> WindowScoreBatch:
+        """Return scalar window evidence for one source series."""
         indices = self.indices_for_series(series_id)
         return WindowScoreBatch(
             self.values[indices],
@@ -50,6 +57,8 @@ class WindowScoreBatch(WindowEvidenceBatch):
 
 @dataclass(frozen=True)
 class WindowPointScoreBatch(WindowEvidenceBatch):
+    """Finite pointwise evidence values for every valid window position."""
+
     values: tuple[np.ndarray, ...]
     references: tuple[WindowReference, ...]
 
@@ -69,6 +78,7 @@ class WindowPointScoreBatch(WindowEvidenceBatch):
         object.__setattr__(self, "values", tuple(point_scores))
 
     def for_series(self, series_id: str) -> WindowPointScoreBatch:
+        """Return pointwise window evidence for one source series."""
         indices = self.indices_for_series(series_id)
         return WindowPointScoreBatch(
             tuple(self.values[index] for index in indices),

@@ -6,6 +6,7 @@ from detectiv.images.io.readers import ImageFolderReader
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
+from detectiv.runs import ReproducibilitySettings
 from detectiv.scoring import MeanSquaredWindowReconstructionError
 from detectiv.time_series import (
     TemporalBoundary,
@@ -48,10 +49,10 @@ def test_materialized_ts2i_images_reload_as_trainable_image_folder(
             )
         )
     )
-    materialized, _ = preparation.materialize(
+    materialized = preparation.materialize(
         (4, 4),
         MaterializationSettings(tmp_path / "images", workers=2),
-        seed=7,
+        reproducibility=ReproducibilitySettings(seed=7),
     )
 
     restored = ImageFolderReader(tmp_path / "images").read()
@@ -66,6 +67,11 @@ def test_materialized_ts2i_images_reload_as_trainable_image_folder(
         assert expected.metadata == actual.metadata
         assert expected.window_references == actual.window_references
         np.testing.assert_array_equal(expected.window_labels, actual.window_labels)
+        assert expected.point_labels is not None
+        assert actual.point_labels is not None
+        np.testing.assert_array_equal(
+            expected.point_labels["pump"], actual.point_labels["pump"]
+        )
         for index in range(len(expected)):
             np.testing.assert_array_equal(expected[index], actual[index])
 

@@ -10,6 +10,8 @@ from detectiv.images.dataset import ImageDataset
 
 
 class TorchImageDataset(TorchDataset[Tensor]):
+    """PyTorch adapter for all or an ordered subset of an image dataset."""
+
     def __init__(
         self,
         images: ImageDataset,

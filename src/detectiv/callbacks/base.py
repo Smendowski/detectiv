@@ -1,9 +1,65 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from detectiv.runs import RunContext, TrainingEpochEvent
+
+
+class Callback[T](Protocol):
+    """Structural lifecycle contract used by scenario callback dispatch."""
+
+    @property
+    def name(self) -> str:
+        """Return the callback's unique scenario registration name.
+
+        Returns:
+            The callback registration name.
+        """
+        ...
+
+    def on_run_started(self) -> None:
+        """Initialize callback state before scenario work begins."""
+        ...
+
+    def on_run_context(self, context: RunContext) -> None:
+        """Receive the shared run context.
+
+        Args:
+            context: Run identity and output-registration context.
+        """
+        ...
+
+    def on_epoch_finished(self, event: TrainingEpochEvent) -> None:
+        """Handle one completed training epoch.
+
+        Args:
+            event: Data recorded for the completed epoch.
+        """
+        ...
+
+    def on_run_finished(self, result: T) -> T | None:
+        """Handle or replace a successful result.
+
+        Args:
+            result: Current result after preceding callbacks.
+
+        Returns:
+            A replacement result, or `None` to preserve the current result.
+        """
+        ...
+
+    def on_run_failed(self, error: BaseException) -> None:
+        """Handle a scenario failure.
+
+        Args:
+            error: Original scenario exception.
+        """
+        ...
+
+    def on_run_closed(self) -> None:
+        """Release callback resources after success or failure."""
+        ...
 
 
 class BaseCallback[T]:
@@ -16,7 +72,14 @@ class BaseCallback[T]:
 
     @property
     def name(self) -> str:
-        """Return the callback's unique scenario registration name."""
+        """Return the callback's unique scenario registration name.
+
+        Returns:
+            The callback registration name.
+
+        Raises:
+            NotImplementedError: If a subclass does not define a name.
+        """
         raise NotImplementedError
 
     def on_run_started(self) -> None:
@@ -33,6 +96,9 @@ class BaseCallback[T]:
 
         This optional hook runs before ``on_run_started()``. Existing callbacks
         that implement only the original lifecycle hooks remain compatible.
+
+        Args:
+            context: Run identity and output-registration context.
         """
         pass
 
@@ -49,12 +115,19 @@ class BaseCallback[T]:
         """
         pass
 
-    def on_run_finished(self, result: T) -> None:
-        """Handle the successful scenario result in registration order.
+    def on_run_finished(self, result: T) -> T | None:
+        """Handle or replace the successful result in registration order.
 
-        Exceptions propagate directly and do not trigger `on_run_failed()`.
+        Returning ``None`` preserves ``result`` for the next callback. Exceptions
+        propagate directly and do not trigger `on_run_failed()`.
+
+        Args:
+            result: Current result after preceding callbacks.
+
+        Returns:
+            A replacement result, or `None` to preserve the current result.
         """
-        pass
+        return None
 
     def on_run_failed(self, error: BaseException) -> None:
         """Handle failure after this callback has started.

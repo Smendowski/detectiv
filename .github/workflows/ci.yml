@@ -12,21 +12,6 @@ permissions:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          version: "0.12.11"
-      - run: uv sync --locked --all-groups
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy src tests scenarios
-      - run: uv run mkdocs build --strict
-
-  tests:
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -39,22 +24,5 @@ jobs:
         with:
           version: "0.12.11"
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --locked --no-default-groups --group test
-      - run: uv run coverage run -m pytest
-      - run: uv run coverage report
-
-  package:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          version: "0.12.11"
-          python-version: "3.12"
-      - run: uv build --no-sources
-      - name: Verify wheel contents and isolated import
-        run: |
-          uvx check-wheel-contents dist/*.whl
-          uv run --no-project --with dist/*.whl python -c "import detectiv; print(detectiv.__version__)"
+      - run: cargo install just --locked
+      - run: just check

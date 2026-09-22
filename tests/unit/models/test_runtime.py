@@ -1,7 +1,12 @@
 import pytest
 import torch
 
+from detectiv.models import ComputeDevice
 from detectiv.models.runtime import resolve_device
+
+
+def test_resolve_device_accepts_a_compute_device() -> None:
+    assert resolve_device(ComputeDevice.CPU) == torch.device("cpu")
 
 
 def test_resolve_device_rejects_an_unavailable_cuda_index(

@@ -7,6 +7,11 @@ from detectiv.models.autoencoders.base import ImageEncoder
 
 
 class ResNet18Encoder(ImageEncoder):
+    """ResNet-18 feature encoder with optional pretrained frozen weights.
+
+    Requires the optional ``vision`` dependency group.
+    """
+
     def __init__(
         self,
         *,

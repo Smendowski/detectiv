@@ -23,10 +23,10 @@ from detectiv.ts2i.transformations import Spiral
 
 def test_chunked_process_materialization_matches_synchronous(tmp_path: Path) -> None:
     preparation = _preparation()
-    synchronous, synchronous_report = preparation.materialize(
+    synchronous = preparation.materialize(
         (4, 4), MaterializationSettings(tmp_path / "synchronous", workers=0)
     )
-    concurrent, concurrent_report = preparation.materialize(
+    concurrent = preparation.materialize(
         (4, 4), MaterializationSettings(tmp_path / "concurrent", workers=2)
     )
 
@@ -39,12 +39,19 @@ def test_chunked_process_materialization_matches_synchronous(tmp_path: Path) -> 
         assert expected.window_labels is not None
         assert actual.window_labels is not None
         assert np.array_equal(expected.window_labels, actual.window_labels)
+        assert expected.point_labels is not None
+        assert actual.point_labels is not None
+        np.testing.assert_array_equal(
+            expected.point_labels["series"], actual.point_labels["series"]
+        )
         assert all(
             np.array_equal(expected[index], actual[index])
             for index in range(len(expected))
         )
-    assert synchronous_report.selected_workers == 0
-    assert concurrent_report.selected_workers == 2
+    assert synchronous.materialization.selected_workers == 0
+    assert concurrent.materialization.selected_workers == 2
+    assert concurrent.provenance["source"] == "materialized"
+    assert concurrent.provenance["location"] == str(tmp_path / "concurrent")
     assert (tmp_path / "concurrent" / "materialization.json").is_file()
 
     scorer = MeanSquaredWindowReconstructionError(batch_size=2, device="cpu")
@@ -59,16 +66,16 @@ def test_chunked_process_materialization_matches_synchronous(tmp_path: Path) -> 
 
 
 def test_auto_falls_back_when_no_candidate_meets_threshold(tmp_path: Path) -> None:
-    _, report = _preparation().materialize(
+    images = _preparation().materialize(
         (4, 4),
         MaterializationSettings(
             tmp_path / "auto", workers="auto", improvement_threshold=2.0
         ),
     )
 
-    assert report.selected_workers == 0
-    assert report.fallback_reason is not None
-    assert report.candidates[0].workers == 0
+    assert images.materialization.selected_workers == 0
+    assert images.materialization.fallback_reason is not None
+    assert images.materialization.candidates[0].workers == 0
 
 
 @pytest.mark.parametrize("workers", [-1, "thread"])
@@ -80,11 +87,13 @@ def test_materialization_rejects_invalid_worker_modes(
 
 
 def test_max_is_bounded_by_independent_windows(tmp_path: Path) -> None:
-    images, report = _preparation().materialize(
+    images = _preparation().materialize(
         (4, 4), MaterializationSettings(tmp_path / "max", workers="max")
     )
 
-    assert report.selected_workers <= len(images.train) + len(images.test)
+    assert images.materialization.selected_workers <= len(images.train) + len(
+        images.test
+    )
 
 
 def test_materialization_removes_staging_directory_on_failure(

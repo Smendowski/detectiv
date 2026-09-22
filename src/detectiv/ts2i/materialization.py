@@ -16,7 +16,7 @@ from typing import Literal, cast
 
 import numpy as np
 
-from detectiv.images import ImageDataset, ImageSource
+from detectiv.images import ImageDataset, ImageSource, ImageSplit
 from detectiv.images.io import ImageArtifactLabel, ImageFormat
 from detectiv.images.io.writers.images import (
     IMAGE_ARTIFACT_MANIFEST_FIELDS,
@@ -36,6 +36,15 @@ _WORKER_LABELS: tuple[np.ndarray | None, ...] = ()
 
 @dataclass(frozen=True)
 class DataLoaderSettings:
+    """PyTorch data-loader settings recorded with a materialized artifact.
+
+    Args:
+        workers: Number of data-loader worker processes.
+        prefetch_factor: Batches prefetched by each worker.
+        persistent_workers: Keep workers alive between loader iterations.
+        pin_memory: Pin loaded image tensors in host memory.
+    """
+
     workers: int = 0
     prefetch_factor: int | None = None
     persistent_workers: bool = False
@@ -56,6 +65,18 @@ class DataLoaderSettings:
 
 @dataclass(frozen=True)
 class MaterializationSettings:
+    """Output location, worker selection, and measurement settings.
+
+    Args:
+        directory: New destination directory for the image artifact.
+        workers: Fixed worker count, or ``"auto"``/``"max"`` selection policy.
+        warmup: Untimed render measurements before worker selection.
+        samples: Timed measurements for each worker candidate.
+        improvement_threshold: Relative throughput gain required to add workers.
+        loader: Data-loader settings stored with the artifact metadata.
+        profile: Whether to write a render profile trace.
+    """
+
     directory: Path
     workers: MaterializationWorkers = 0
     warmup: int = 0
@@ -79,6 +100,8 @@ class MaterializationSettings:
 
 @dataclass(frozen=True)
 class CandidateMeasurement:
+    """Measured render throughput for one candidate worker count."""
+
     workers: int
     elapsed_seconds: float
     throughput: float
@@ -86,6 +109,8 @@ class CandidateMeasurement:
 
 @dataclass(frozen=True)
 class MaterializationReport:
+    """Selected rendering configuration and its worker measurements."""
+
     requested_workers: MaterializationWorkers
     selected_workers: int
     candidates: tuple[CandidateMeasurement, ...]
@@ -94,6 +119,11 @@ class MaterializationReport:
     profile_trace: str | None = None
 
     def record(self) -> dict[str, object]:
+        """Return a serializable representation suitable for run metadata.
+
+        Returns:
+            Nested built-in values that can be persisted as run metadata.
+        """
         return {
             "requested_workers": self.requested_workers,
             "selected_workers": self.selected_workers,
@@ -104,7 +134,36 @@ class MaterializationReport:
         }
 
 
+class MaterializedImageSplit(ImageSplit):
+    """Materialized image partitions with their rendering report."""
+
+    materialization: MaterializationReport
+
+    def __init__(
+        self,
+        *,
+        train: ImageDataset,
+        test: ImageDataset,
+        validation: ImageDataset | None,
+        materialization: MaterializationReport,
+        location: Path,
+    ) -> None:
+        super().__init__(
+            train=train,
+            test=test,
+            validation=validation,
+            provenance={
+                "source": "materialized",
+                "location": str(location),
+                "materialization": materialization.record(),
+            },
+        )
+        object.__setattr__(self, "materialization", materialization)
+
+
 class NpyImageSource(ImageSource):
+    """Image source that lazily reads individual non-pickled NPY files."""
+
     def __init__(self, paths: Sequence[Path]) -> None:
         self._paths = tuple(paths)
 
@@ -115,6 +174,15 @@ class NpyImageSource(ImageSource):
         return cast(np.ndarray, np.load(self._paths[index], allow_pickle=False))
 
     def rebase(self, source: Path, destination: Path) -> NpyImageSource:
+        """Return an equivalent source rooted at a moved artifact directory.
+
+        Args:
+            source: Existing artifact root.
+            destination: New artifact root.
+
+        Returns:
+            A source with each NPY path rebased to ``destination``.
+        """
         return NpyImageSource(
             tuple(destination / path.relative_to(source) for path in self._paths)
         )
@@ -123,6 +191,18 @@ class NpyImageSource(ImageSource):
 def materialize(
     images: TemporalSplit[ImageDataset], settings: MaterializationSettings
 ) -> tuple[TemporalSplit[ImageDataset], MaterializationReport]:
+    """Render images to a new artifact directory and return file-backed datasets.
+
+    Args:
+        images: Lazy split datasets to render.
+        settings: Output directory and worker-selection configuration.
+
+    Returns:
+        Split datasets backed by the published NPY artifact and its report.
+
+    Raises:
+        FileExistsError: If the requested output directory already exists.
+    """
     if settings.directory.exists():
         raise FileExistsError(
             f"materialization directory already exists: {settings.directory}"
@@ -367,6 +447,7 @@ def _write_images(
             source=NpyImageSource(paths),
             window_labels=dataset.window_labels,
             series_lengths=dataset.series_lengths,
+            point_labels=dataset.point_labels,
             metadata=metadata,
         )
     if "validation" in result:
@@ -460,6 +541,7 @@ def _rebase(
             source=cast(NpyImageSource, dataset.source).rebase(source, destination),
             window_labels=dataset.window_labels,
             series_lengths=dataset.series_lengths,
+            point_labels=dataset.point_labels,
             metadata=dataset.metadata,
         )
 

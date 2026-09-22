@@ -11,7 +11,10 @@ from detectiv.runs.identity import (
     RunIdentity,
     RunOutputLocator,
 )
-from detectiv.runs.reproducibility import ReproducibilitySettings
+from detectiv.runs.reproducibility import (
+    ReproducibilitySettings,
+    configure_reproducibility,
+)
 
 __all__ = [
     "CompletedRunSummary",
@@ -24,4 +27,5 @@ __all__ = [
     "RunIdentity",
     "RunOutputLocator",
     "TrainingEpochEvent",
+    "configure_reproducibility",
 ]

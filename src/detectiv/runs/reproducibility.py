@@ -35,3 +35,24 @@ class ReproducibilitySettings:
                 **({"device": device} if device is not None else {}),
             }
         )
+
+
+def configure_reproducibility(
+    seed: int = 0, *, deterministic_algorithms: bool = True
+) -> ReproducibilitySettings:
+    """Configure supported random generators and return the applied settings.
+
+    Call this before constructing models or other randomly initialized objects.
+    Pass the returned settings to later pipeline stages so they can derive
+    deterministic local generators and record the run configuration.
+
+    Args:
+        seed: Seed applied to Python, NumPy, Torch, and available CUDA devices.
+        deterministic_algorithms: Whether Torch must use deterministic algorithms.
+
+    Returns:
+        The applied settings for propagation to the experiment pipeline.
+    """
+    settings = ReproducibilitySettings(seed, deterministic_algorithms)
+    settings.apply()
+    return settings

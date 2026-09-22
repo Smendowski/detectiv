@@ -12,6 +12,8 @@ from detectiv.time_series.windowing import WindowReference
 
 
 class ImageFolderSource(ImageSource):
+    """Lazy image source backed by ordered artifact file paths."""
+
     def __init__(self, paths: tuple[Path, ...], image_format: ImageFormat) -> None:
         self.paths = paths
         self.image_format = image_format
@@ -29,10 +31,21 @@ class ImageFolderSource(ImageSource):
 
 
 class ImageFolderReader:
+    """Restore a temporal image split from a folder artifact."""
+
     def __init__(self, path: Path) -> None:
         self.path = path
 
     def read(self) -> TemporalSplit[ImageDataset]:
+        """Read and validate the folder metadata, sidecars, and manifest.
+
+        Returns:
+            Lazy train, optional validation, and test image datasets.
+
+        Raises:
+            FileNotFoundError: If required artifact metadata or manifest is absent.
+            ValueError: If metadata, sidecars, or manifest rows are invalid.
+        """
         metadata = self._read_metadata()
         image_format = self._image_format(metadata.get("format"))
         image_shape = self._image_shape(metadata.get("image_shape"))
@@ -55,6 +68,7 @@ class ImageFolderReader:
                 image_shape,
                 image_format,
                 self._series_lengths(metadata.get("series_lengths"), split),
+                self._point_labels(metadata.get("point_labels"), split),
                 self._dataset_metadata(dataset_metadata, split),
             )
             for split, rows in entries.items()
@@ -142,6 +156,7 @@ class ImageFolderReader:
         image_shape: ImageShape,
         image_format: ImageFormat,
         series_lengths: dict[str, int] | None,
+        point_labels: dict[str, np.ndarray] | None,
         metadata: dict[str, object],
     ) -> ImageDataset:
         dataset_id = dataset_ids.get(split)
@@ -178,6 +193,7 @@ class ImageFolderReader:
             source=ImageFolderSource(tuple(paths), image_format),
             window_labels=window_labels,
             series_lengths=series_lengths,
+            point_labels=point_labels,
             metadata=metadata,
         )
 
@@ -207,6 +223,33 @@ class ImageFolderReader:
                 f"artifact metadata has no valid dataset metadata for {split}"
             )
         return metadata
+
+    def _point_labels(self, value: object, split: str) -> dict[str, np.ndarray] | None:
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError("artifact metadata point labels must be mapped by split")
+        references = value.get(split)
+        if references is None:
+            return None
+        if not isinstance(references, dict) or not all(
+            isinstance(series_id, str) and isinstance(path, str)
+            for series_id, path in references.items()
+        ):
+            raise ValueError(
+                f"artifact metadata has invalid point-label references for {split}"
+            )
+        try:
+            return {
+                series_id: np.asarray(
+                    np.load(self._resolve(relative_path), allow_pickle=False)
+                )
+                for series_id, relative_path in references.items()
+            }
+        except (OSError, ValueError) as error:
+            raise ValueError(
+                f"artifact has invalid point labels for {split}"
+            ) from error
 
     def _resolve(self, relative_path: str) -> Path:
         root = self.path.resolve()

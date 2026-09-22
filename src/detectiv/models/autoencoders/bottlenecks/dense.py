@@ -8,6 +8,12 @@ from detectiv.models.autoencoders.layers import make_activation
 
 
 class DenseSpatialBottleneck(ImageBottleneck):
+    """Project spatial embeddings through a dense latent representation.
+
+    Set ``adaptive_pool=True`` to accept encoder outputs with varying spatial
+    dimensions and decode them at the configured input size.
+    """
+
     def __init__(
         self,
         input_channels: int,

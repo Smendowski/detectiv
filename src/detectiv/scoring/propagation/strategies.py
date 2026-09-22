@@ -9,6 +9,8 @@ from detectiv.scoring.window_scores import (
 
 
 class UniformPointAssignment(PointAssignment):
+    """Assign each window's scalar evidence uniformly to its valid points."""
+
     @property
     def name(self) -> str:
         return "uniform"
@@ -28,6 +30,8 @@ class UniformPointAssignment(PointAssignment):
 
 
 class MeanPointScoreAggregator(PointScoreAggregator):
+    """Average all window contributions at each covered point."""
+
     @property
     def name(self) -> str:
         return "mean"
@@ -57,6 +61,8 @@ class MeanPointScoreAggregator(PointScoreAggregator):
 
 
 class MaxPointScoreAggregator(PointScoreAggregator):
+    """Keep the greatest window contribution at each covered point."""
+
     @property
     def name(self) -> str:
         return "max"
@@ -78,6 +84,8 @@ class MaxPointScoreAggregator(PointScoreAggregator):
 
 
 class MedianPointScoreAggregator(PointScoreAggregator):
+    """Use the median window contribution at each covered point."""
+
     @property
     def name(self) -> str:
         return "median"

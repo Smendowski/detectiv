@@ -72,7 +72,12 @@ def test_experiment_domain_dependencies_are_one_directional() -> None:
 
 def test_generic_mlflow_tracker_has_no_concrete_scenario_dependencies() -> None:
     source = (
-        Path(__file__).parents[2] / "src" / "detectiv" / "callbacks" / "mlflow.py"
+        Path(__file__).parents[2]
+        / "src"
+        / "detectiv"
+        / "callbacks"
+        / "tracking"
+        / "mlflow.py"
     ).read_text(encoding="utf-8")
 
     forbidden = (

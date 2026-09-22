@@ -7,10 +7,25 @@ from detectiv.ts2i.projection.strategies.base import ProjectionStrategy
 
 
 class FixedProjectionStrategy(ProjectionStrategy):
+    """Fit a configured projection scheme without changing its composition."""
+
     def __init__(self, scheme: ProjectionScheme) -> None:
+        """Store the channelization and transformation scheme to fit.
+
+        Args:
+            scheme: Configured scheme whose channelization may require fitting.
+        """
         self.scheme = scheme
 
     def fit(self, train: TimeSeriesDataset) -> ProjectionScheme:
+        """Clone and fit the scheme channelization on training data.
+
+        Args:
+            train: Training-only data used by the channelization.
+
+        Returns:
+            A scheme with independent fitted channelization state.
+        """
         channelization = deepcopy(self.scheme.channelization)
         channelization.fit(train)
         return replace(self.scheme, channelization=channelization)

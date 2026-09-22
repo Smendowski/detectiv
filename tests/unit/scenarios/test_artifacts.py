@@ -30,6 +30,20 @@ class OtherScenarioResult:
     def validation_losses(self) -> tuple[float, ...]:
         return self.training.validation_losses
 
+    def record(self) -> dict[str, JSONValue]:
+        return {
+            "scenario_type": "other",
+            "resolved_inputs": self.resolved_inputs,
+            "reproducibility": self.reproducibility,
+            "training": {
+                "losses": self.training_losses,
+                "validation_losses": self.validation_losses,
+                "best_epoch": self.training.best_epoch,
+                "best_validation_loss": self.training.best_validation_loss,
+                "device": self.training.device,
+            },
+        }
+
 
 def test_run_artifact_writer_separates_manifest_and_point_scores(
     tmp_path: Path,
@@ -54,6 +68,7 @@ def test_run_artifact_writer_separates_manifest_and_point_scores(
     manifest = json.loads(artifacts.manifest.read_text())
     scores = np.load(artifacts.point_scores)
     assert manifest["schema_version"] == 2
+    assert manifest["scenario_type"] == "reconstruction"
     assert manifest["training"] == {
         "losses": [0.5],
         "validation_losses": [],
@@ -74,6 +89,23 @@ def test_run_artifact_writer_separates_manifest_and_point_scores(
         == hashlib.file_digest(artifacts.point_scores.open("rb"), "sha256").hexdigest()
     )
     np.testing.assert_allclose(scores["score_0_0_0"], [1.0, 2.0, 3.0])
+
+
+def test_reconstruction_report_writes_its_metrics(tmp_path: Path) -> None:
+    report = ReconstructionScenarioResult(
+        window_scores={},
+        point_scores={"window": {"mean": {"series": np.array([1.0])}}},
+        training=TrainingHistory((0.5,)),
+        metrics={"window.mean.series.ROC-AUC": 0.9},
+    )
+
+    artifacts = report.write(tmp_path)
+
+    assert report.summary().endswith(
+        "Metrics (window / mean / series):\n  ROC-AUC: 0.900"
+    )
+    assert tuple(report.metrics) == ("window.mean.series.ROC-AUC",)
+    assert artifacts.read_report()["metrics"] == {"window.mean.series.ROC-AUC": 0.9}
 
 
 def test_run_artifact_writer_creates_opt_in_figures(tmp_path: Path) -> None:

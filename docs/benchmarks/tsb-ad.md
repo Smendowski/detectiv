@@ -101,23 +101,35 @@ Use `load_collection()` only when every dataset must be resident at once.
 ## 5. Evaluate Point Scores
 
 `TSBADAdapter` is Detectiv's boundary to the initialized upstream package. It
-provides the ACF window estimator and creates a configured evaluator for
-validated point scores and binary labels:
+provides the ACF window estimator and creates a configured evaluator. Register
+that evaluator as a scenario callback; labels flow from the source `TimeSeries`
+into the reconstruction report and are not passed again:
 
 ```python
 from pathlib import Path
 
 from detectiv.benchmarks.tsb_ad import TSBADAdapter
+from detectiv.callbacks import MetricsCallback
 
 adapter = TSBADAdapter(Path("external/tsb-ad"))
-window = adapter.acf_window(dataset["001_NAB_id_1_Facility_tr_1007_1st_2014"])
+source_series = dataset["001_NAB_id_1_Facility_tr_1007_1st_2014"]
+window = adapter.acf_window(source_series)
 evaluator = adapter.evaluator(sliding_window=window)
-metrics = evaluator.evaluate(point_scores, labels)
+scenario = ReconstructionScenario(
+    # ...
+    callbacks=(MetricsCallback(evaluator),),
+)
+report = scenario.run()
+artifacts = report.write(output_directory)
+print(report.summary())
+print(artifacts.manifest)
+print(artifacts.point_scores)
 ```
 
-`point_scores` and `labels` must have the same one-dimensional shape. Labels
-must be binary and include both normal and anomalous points, matching the
-requirements of the upstream metrics.
+Each report score series and its labels must have the same one-dimensional
+shape. Labels must be binary and include both normal and anomalous points,
+matching the requirements of the upstream metrics. The callback stores each
+result as `<plan>.<propagation>.<series>.<metric>` in `report.metrics`.
 
 ## Integration Boundaries
 

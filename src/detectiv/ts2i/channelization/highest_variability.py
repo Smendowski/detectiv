@@ -8,16 +8,29 @@ from detectiv.ts2i.channelization.base import Channelization
 
 
 class FeatureSelectionScope(StrEnum):
+    """Data used to rank features by variance."""
+
     WINDOW = "window"
     TRAINING = "training"
 
 
 class HighestVariabilityFeatureChannelization(Channelization):
+    """Select the most variable input features as univariate planes."""
+
     def __init__(
         self,
         n_features: int,
         scope: FeatureSelectionScope | str = FeatureSelectionScope.TRAINING,
     ) -> None:
+        """Configure the number of features and ranking scope.
+
+        Args:
+            n_features: Positive number of features selected per window.
+            scope: Rank features across training data or independently per window.
+
+        Raises:
+            ValueError: If ``n_features`` is not positive.
+        """
         if n_features <= 0:
             raise ValueError("n_features must be positive")
         self.n_features = n_features
@@ -26,9 +39,22 @@ class HighestVariabilityFeatureChannelization(Channelization):
 
     @property
     def feature_indices(self) -> tuple[int, ...] | None:
+        """Return fitted training feature indices, when available.
+
+        Returns:
+            Selected indices for training scope, otherwise ``None``.
+        """
         return self._feature_indices
 
     def fit(self, train: TimeSeriesDataset) -> Self:
+        """Rank features across training data when using training scope.
+
+        Args:
+            train: Training-only source series.
+
+        Returns:
+            This channelization, potentially with selected feature indices.
+        """
         if self.scope is FeatureSelectionScope.TRAINING:
             values = np.concatenate(
                 tuple(train[series_id].values for series_id in train.series_ids)
@@ -37,6 +63,18 @@ class HighestVariabilityFeatureChannelization(Channelization):
         return self
 
     def transform(self, window: np.ndarray) -> tuple[np.ndarray, ...]:
+        """Return the selected feature values as separate planes.
+
+        Args:
+            window: Two-dimensional time-major feature values.
+
+        Returns:
+            Selected features in descending variability order.
+
+        Raises:
+            RuntimeError: If training-scope selection has not been fitted.
+            ValueError: If the window cannot provide the requested features.
+        """
         if window.ndim != 2:
             raise ValueError("feature selection requires a two-dimensional window")
         if self.scope is FeatureSelectionScope.WINDOW:

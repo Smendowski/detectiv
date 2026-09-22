@@ -8,6 +8,8 @@ from detectiv.models.autoencoders.layers import make_activation, resolve_layer_v
 
 
 class CNNDecoder(ImageDecoder):
+    """Configurable transposed-convolution decoder for image embeddings."""
+
     def __init__(
         self,
         input_channels: int,

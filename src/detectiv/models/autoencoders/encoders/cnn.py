@@ -8,6 +8,12 @@ from detectiv.models.autoencoders.layers import make_activation, resolve_layer_v
 
 
 class CNNEncoder(ImageEncoder):
+    """Configurable convolutional encoder for channel-first images.
+
+    Each hidden-channel entry creates one convolution, optional batch
+    normalization, and activation layer.
+    """
+
     def __init__(
         self,
         input_channels: int,

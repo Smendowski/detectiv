@@ -4,14 +4,18 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 import pytest
 
-from detectiv.callbacks import BaseCallback, TimingCallback
+from detectiv.callbacks import BaseCallback, Callback, TimingCallback
 from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
 from detectiv.protocols import SemiSupervisedTraining
 from detectiv.runs import ReproducibilitySettings
-from detectiv.scenarios import ReconstructionScenario
+from detectiv.scenarios import (
+    ExperimentReport,
+    ReconstructionReport,
+    ReconstructionScenario,
+)
 from detectiv.scoring import (
     MeanPointScoreAggregator,
     MeanSquaredWindowReconstructionError,
@@ -99,6 +103,7 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
         ),
         labels=np.array([False, True]),
         series_length=6,
+        point_labels=np.array([0, 0, 1, 1, 0, 0]),
     )
     timer = TimingCallback()
     scenario = ReconstructionScenario(
@@ -134,6 +139,13 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
     result = scenario.run()
 
     assert len(result.training_losses) == 1
+    assert isinstance(result, ExperimentReport)
+    assert "Scenario: reconstruction" in result.summary()
+    assert result.summary().splitlines()[1:4] == [
+        "Train images: 2",
+        "Validation images: none",
+        "Test images: 2",
+    ]
     assert len(result.window_scores["mean_squared_window"].references) == 2
     assert result.point_scores["mean_squared_window"]["uniform_mean"][
         "series"
@@ -141,9 +153,18 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
     assert not result.point_scores["mean_squared_window"]["uniform_mean"][
         "series"
     ].flags.writeable
+    assert (
+        result.point_scores_for("series")
+        is (result.point_scores["mean_squared_window"]["uniform_mean"]["series"])
+    )
+    assert result.point_scores_for(
+        "series", scoring=scenario.scoring_plans[0]
+    ) is result.point_scores_for("series")
     with pytest.raises(TypeError):
         result.point_scores["other"] = {}  # type: ignore[index]
     assert result.callbacks["timing"] is timer
+    assert result.point_labels is not None
+    np.testing.assert_array_equal(result.point_labels["series"], [0, 0, 1, 1, 0, 0])
     assert timer.elapsed_seconds is not None
     assert result.resolved_inputs["scenario"] == (
         "detectiv.scenarios.reconstruction.ReconstructionScenario"
@@ -374,6 +395,7 @@ def _images(
     references: tuple[WindowReference, ...],
     labels: np.ndarray,
     series_length: int,
+    point_labels: np.ndarray | None = None,
 ) -> ImageDataset:
     return ImageDataset(
         "images",
@@ -382,6 +404,7 @@ def _images(
         source=ArrayImageSource(values),
         window_labels=labels,
         series_lengths={"series": series_length},
+        point_labels=(None if point_labels is None else {"series": point_labels}),
     )
 
 
@@ -389,7 +412,7 @@ def _scenario(
     train: ImageDataset,
     test: ImageDataset,
     *,
-    callbacks: tuple[BaseCallback[object], ...] = (),
+    callbacks: tuple[Callback[ReconstructionReport], ...] = (),
     reproducibility: ReproducibilitySettings | None = None,
 ) -> ReconstructionScenario:
     return ReconstructionScenario(

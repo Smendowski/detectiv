@@ -41,7 +41,7 @@ artifact directories. Add `ReconstructionMlflowCallback` when reconstruction
 training metrics, curves, reports, or model publication are useful:
 
 See the [MLflow callback API](api/callbacks/mlflow.md) and
-[reconstruction tracking API](api/scenarios/reconstruction-tracking.md) for the
+[reconstruction tracking API](api/callbacks/tracking/reconstruction.md) for the
 public configuration contracts. Usage samples will live under `samples/` once
 they are prepared.
 

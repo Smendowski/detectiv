@@ -6,7 +6,7 @@ import pytest
 
 from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.images.io import ImageFormat, ImageOutputConfig
-from detectiv.images.io.readers import ImageFolderReader
+from detectiv.images.io.readers import ImageArtifactReader, ImageFolderReader
 from detectiv.images.io.writers import ImageArchiveWriter, ImageFolderWriter
 from detectiv.time_series import TemporalSplit
 from detectiv.time_series.windowing import WindowReference
@@ -44,6 +44,17 @@ def test_png_output_rejects_values_outside_its_numeric_domain(
     assert not output.exists()
 
 
+def test_npy_output_rejects_object_images(tmp_path: Path) -> None:
+    output = tmp_path / "images"
+
+    with pytest.raises(ValueError, match="object image arrays"):
+        ImageFolderWriter(ImageOutputConfig(output)).write(
+            _split(np.full((3, 2, 2), "not-a-number", dtype=object))
+        )
+
+    assert not output.exists()
+
+
 def test_archive_writer_requires_an_image_format(tmp_path: Path) -> None:
     with pytest.raises(TypeError, match="ImageFormat"):
         ImageArchiveWriter(tmp_path / "images.zip", image_format="npy")  # type: ignore[arg-type]
@@ -59,6 +70,49 @@ def test_npy_artifacts_preserve_json_safe_dataset_metadata(tmp_path: Path) -> No
 
     assert restored.train.metadata == metadata
     assert restored.test.metadata == metadata
+
+
+def test_folder_artifact_round_trip_uses_point_label_sidecars(tmp_path: Path) -> None:
+    labels = np.array([False, True])
+    folder = ImageFolderWriter(ImageOutputConfig(tmp_path / "images")).write(
+        _split(np.ones((3, 2, 2)), point_labels=labels)
+    )
+
+    metadata = json.loads((folder / "artifact.json").read_text(encoding="utf-8"))
+    reference = metadata["point_labels"]["train"]["series"]
+    assert reference == "point_labels/train/000000.npy"
+    assert (folder / reference).is_file()
+    assert labels.tolist() not in metadata.values()
+
+    restored = ImageFolderReader(folder).read()
+    assert restored.train.point_labels is not None
+    assert restored.test.point_labels is not None
+    np.testing.assert_array_equal(restored.train.point_labels["series"], labels)
+    np.testing.assert_array_equal(restored.test.point_labels["series"], labels)
+
+
+def test_zip_artifact_round_trip_preserves_point_labels(tmp_path: Path) -> None:
+    labels = np.array([False, True])
+    archive = ImageArchiveWriter(tmp_path / "images.zip").write(
+        _split(np.ones((3, 2, 2)), point_labels=labels)
+    )
+
+    with ImageArtifactReader(archive).open() as restored:
+        assert restored.train.point_labels is not None
+        assert restored.test.point_labels is not None
+        np.testing.assert_array_equal(restored.train.point_labels["series"], labels)
+        np.testing.assert_array_equal(restored.test.point_labels["series"], labels)
+
+
+def test_reader_accepts_legacy_artifacts_without_point_labels(tmp_path: Path) -> None:
+    folder = ImageFolderWriter(ImageOutputConfig(tmp_path / "images")).write(
+        _split(np.ones((3, 2, 2)))
+    )
+
+    restored = ImageFolderReader(folder).read()
+
+    assert restored.train.point_labels is None
+    assert restored.test.point_labels is None
 
 
 def test_writer_rejects_non_serializable_dataset_metadata(tmp_path: Path) -> None:
@@ -113,13 +167,18 @@ def test_reader_rejects_manifest_entries_for_missing_images(tmp_path: Path) -> N
 
 
 def _split(
-    image: np.ndarray, *, metadata: dict[str, object] | None = None
+    image: np.ndarray,
+    *,
+    metadata: dict[str, object] | None = None,
+    point_labels: np.ndarray | None = None,
 ) -> TemporalSplit[ImageDataset]:
     dataset = ImageDataset(
         "images",
         image_shape=ImageShape(3, 2, 2),
         window_references=(WindowReference("series", 0, 2, 2),),
         source=ArrayImageSource(image),
+        series_lengths={"series": 2},
+        point_labels=None if point_labels is None else {"series": point_labels},
         metadata=metadata,
     )
     return TemporalSplit(train=dataset, test=dataset)

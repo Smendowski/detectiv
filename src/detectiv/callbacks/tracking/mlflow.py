@@ -74,12 +74,27 @@ class MlflowCallback[T](BaseCallback[T]):
 
     @property
     def name(self) -> str:
+        """Return the fixed registration name `mlflow`.
+
+        Returns:
+            The callback registration name.
+        """
         return "mlflow"
 
     def on_run_context(self, context: RunContext) -> None:
+        """Retain the shared run context for MLflow lineage.
+
+        Args:
+            context: Shared run identity and output-registration context.
+        """
         self._context = context
 
     def on_run_started(self) -> None:
+        """Open and initialize the configured MLflow run.
+
+        Raises:
+            RuntimeError: If MLflow does not expose the newly started run.
+        """
         self._mlflow = _load_mlflow()
         if self.tracking_uri is not None:
             self._mlflow.set_tracking_uri(self.tracking_uri)
@@ -127,14 +142,25 @@ class MlflowCallback[T](BaseCallback[T]):
             raise
 
     def on_run_finished(self, result: T) -> None:
+        """Log configured success outputs and status.
+
+        Args:
+            result: Successful scenario result; generic tracking does not inspect it.
+        """
         self._require_active()
         if self.metrics_provider is not None:
             self.log_metrics(self.metrics_provider())
         for directory, artifact_path in self.artifact_directories.items():
             self.log_artifacts(directory, artifact_path=artifact_path)
         self.set_tags({"detectiv.run_status": "succeeded"})
+        return None
 
     def on_run_failed(self, error: BaseException) -> None:
+        """Record a failed status for an active MLflow run.
+
+        Args:
+            error: Original scenario exception.
+        """
         if self._active:
             self._failure = error
             self.set_tags(
@@ -145,6 +171,7 @@ class MlflowCallback[T](BaseCallback[T]):
             )
 
     def on_run_closed(self) -> None:
+        """Close the active MLflow run with its recorded outcome."""
         if self._active:
             self._active = False
             if self._failure is None:
@@ -157,28 +184,50 @@ class MlflowCallback[T](BaseCallback[T]):
     def log_metrics(
         self, metrics: Mapping[str, object], *, step: int | None = None
     ) -> None:
-        """Log flattened numeric metric leaves in the active MLflow run."""
+        """Log flattened numeric metric leaves in the active MLflow run.
+
+        Args:
+            metrics: Nested metric values; numeric leaves are logged.
+            step: Optional metric step.
+        """
         self._require_active()
         for name, value in _flat_values(metrics).items():
             if isinstance(value, bool | float | int):
                 self._mlflow.log_metric(name, float(value), step=step)
 
     def set_tags(self, tags: Mapping[str, str]) -> None:
-        """Set tags in the active MLflow run."""
+        """Set tags in the active MLflow run.
+
+        Args:
+            tags: Tag names and values.
+        """
         self._require_active()
         self._mlflow.set_tags(tags)
 
     def log_artifacts(
         self, directory: Path, *, artifact_path: str = "detectiv"
     ) -> None:
-        """Upload an existing directory under an MLflow artifact path."""
+        """Upload an existing directory under an MLflow artifact path.
+
+        Args:
+            directory: Existing local directory to upload.
+            artifact_path: Destination path within the MLflow run.
+
+        Raises:
+            ValueError: If `directory` does not exist or is not a directory.
+        """
         self._require_active()
         if not directory.is_dir():
             raise ValueError(f"artifact directory does not exist: {directory}")
         self._mlflow.log_artifacts(str(directory), artifact_path=artifact_path)
 
     def log_figure(self, figure: object, artifact_file: str) -> None:
-        """Upload an already-created figure to the active MLflow run."""
+        """Upload an already-created figure to the active MLflow run.
+
+        Args:
+            figure: Figure supported by MLflow's figure logger.
+            artifact_file: Destination file within the MLflow run.
+        """
         self._require_active()
         self._mlflow.log_figure(figure, artifact_file)
 

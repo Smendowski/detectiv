@@ -10,6 +10,8 @@ from detectiv.time_series.windowing.reference import WindowReference
 
 @dataclass(frozen=True)
 class ImageShape:
+    """Channel-first shape shared by every image in a dataset."""
+
     channels: int
     height: int
     width: int
@@ -20,10 +22,17 @@ class ImageShape:
 
     @property
     def shape(self) -> tuple[int, int, int]:
+        """Return the channel-first dimensions.
+
+        Returns:
+            Channel, height, and width dimensions.
+        """
         return (self.channels, self.height, self.width)
 
 
 class ImageSource(ABC):
+    """Lazy indexed provider of channel-first image arrays."""
+
     @abstractmethod
     def __len__(self) -> int:
         raise NotImplementedError
@@ -34,6 +43,14 @@ class ImageSource(ABC):
 
 
 class ImageDataset:
+    """Lazy images, source windows, and partition-local series metadata.
+
+    `point_labels` retains immutable labels for every source time point and is
+    distinct from optional `window_labels` derived during windowing. Labelled
+    datasets require one aligned point-label array for every `series_lengths`
+    entry; unlabelled datasets preserve `None`.
+    """
+
     def __init__(
         self,
         dataset_id: str,
@@ -43,6 +60,7 @@ class ImageDataset:
         source: ImageSource,
         window_labels: np.ndarray | None = None,
         series_lengths: Mapping[str, int] | None = None,
+        point_labels: Mapping[str, np.ndarray] | None = None,
         metadata: Mapping[str, object] | None = None,
     ) -> None:
         if not dataset_id:
@@ -57,6 +75,7 @@ class ImageDataset:
         self.series_lengths = _validate_series_lengths(
             self.window_references, series_lengths
         )
+        self.point_labels = _validate_point_labels(point_labels, self.series_lengths)
         self.window_labels: np.ndarray | None = None
         if window_labels is not None:
             labels = np.asarray(window_labels)
@@ -108,3 +127,29 @@ def _validate_series_lengths(
     if any(reference.stop > lengths[reference.series_id] for reference in references):
         raise ValueError("window references must lie within their series length")
     return MappingProxyType(lengths)
+
+
+def _validate_point_labels(
+    point_labels: Mapping[str, np.ndarray] | None,
+    series_lengths: Mapping[str, int],
+) -> Mapping[str, np.ndarray] | None:
+    if point_labels is None:
+        return None
+    if set(point_labels) != set(series_lengths):
+        raise ValueError("point_labels must define every series and no others")
+
+    validated: dict[str, np.ndarray] = {}
+    for series_id, values in point_labels.items():
+        labels = np.asarray(values)
+        if labels.ndim != 1 or len(labels) != series_lengths[series_id]:
+            raise ValueError(
+                f"point_labels for {series_id!r} must match its series length"
+            )
+        if not np.issubdtype(labels.dtype, np.bool_) and not np.all(
+            (labels == 0) | (labels == 1)
+        ):
+            raise ValueError("point_labels must contain only binary values")
+        immutable = np.array(labels, dtype=bool, copy=True)
+        immutable.setflags(write=False)
+        validated[series_id] = immutable
+    return MappingProxyType(validated)

@@ -53,6 +53,7 @@ coverage.xml
 .pytest_cache/
 cover/
 artifacts/
+outputs/
 data/*
 !data/.gitkeep
 !data/TSB-AD-U/

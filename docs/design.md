@@ -121,13 +121,13 @@ images = (
             64,
             stride=64,
             tail=TailPolicy.DROP,
-            labeling_strategy=WindowLabelingStrategy.OR_POOLING,
+            labeling=WindowLabelingStrategy.OR_POOLING,
         ),
         validation=WindowSpec(64, stride=1, tail=TailPolicy.DROP),
         test=WindowSpec(64, stride=1, tail=TailPolicy.EDGE_PAD),
     )
     .project(
-        ConfiguredProjectionStrategy(
+        FixedProjectionStrategy(
             ProjectionScheme(IdentityChannelization())
             .channels(RandomNoise())
             .replicate(n_channels=3)
@@ -169,13 +169,13 @@ order and records each original window location.
 Alternative channelizations change only the channelization:
 
 ```python
-projection = ConfiguredProjectionStrategy(
+projection = FixedProjectionStrategy(
     ProjectionScheme(PCAChannelization(n_components=3)).channels(
         RandomNoise(), RandomNoise(), RandomNoise()
     )
 )
 
-mean_std_max_projection = ConfiguredProjectionStrategy(
+mean_std_max_projection = FixedProjectionStrategy(
     ProjectionScheme(MeanStdMaxChannelization()).channels(
         RandomNoise(), RandomNoise(), RandomNoise()
     )

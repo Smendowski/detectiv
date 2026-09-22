@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from uuid import uuid4
 
-from detectiv.callbacks.base import BaseCallback
+from detectiv.callbacks.base import Callback
 from detectiv.runs import (
     CompletedRunSummary,
     ReproducibilitySettings,
@@ -14,12 +14,14 @@ from detectiv.runs import (
 
 
 class BaseScenario[T](ABC):
+    """Generic scenario orchestration with ordered callback lifecycle dispatch."""
+
     scenario_type: str | None = None
 
     def __init__(
         self,
         *,
-        callbacks: Sequence[BaseCallback[T]] = (),
+        callbacks: Sequence[Callback[T]] = (),
         reproducibility: ReproducibilitySettings | None = None,
     ) -> None:
         if len({callback.name for callback in callbacks}) != len(callbacks):
@@ -29,7 +31,15 @@ class BaseScenario[T](ABC):
         self.completed_run: CompletedRunSummary | None = None
 
     def run(self) -> T:
-        started: list[BaseCallback[T]] = []
+        """Execute one scenario run and publish its completed output summary.
+
+        Returns:
+            The final result after ordered completion-callback enrichment.
+
+        Raises:
+            BaseException: Propagates scenario and callback lifecycle failures.
+        """
+        started: list[Callback[T]] = []
         context = RunContext(RunIdentity(str(uuid4())), self.scenario_type)
         self.completed_run = None
 
@@ -43,7 +53,7 @@ class BaseScenario[T](ABC):
             raise
 
         else:
-            self._notify_finished(started, result)
+            result = self._notify_finished(started, result)
             self.completed_run = context.completed_run
             return result
         finally:
@@ -57,23 +67,22 @@ class BaseScenario[T](ABC):
         for callback in self.callbacks:
             callback.on_epoch_finished(event)
 
-    def _notify_started(
-        self, started: list[BaseCallback[T]], context: RunContext
-    ) -> None:
+    def _notify_started(self, started: list[Callback[T]], context: RunContext) -> None:
         for callback in self.callbacks:
             callback.on_run_context(context)
             callback.on_run_started()
             started.append(callback)
 
     @staticmethod
-    def _notify_finished(callbacks: Sequence[BaseCallback[T]], result: T) -> None:
+    def _notify_finished(callbacks: Sequence[Callback[T]], result: T) -> T:
         for callback in callbacks:
-            callback.on_run_finished(result)
+            replacement = callback.on_run_finished(result)
+            if replacement is not None:
+                result = replacement
+        return result
 
     @staticmethod
-    def _notify_failed(
-        callbacks: Sequence[BaseCallback[T]], error: BaseException
-    ) -> None:
+    def _notify_failed(callbacks: Sequence[Callback[T]], error: BaseException) -> None:
         for callback in callbacks:
             try:
                 callback.on_run_failed(error)
@@ -84,7 +93,7 @@ class BaseScenario[T](ABC):
                 )
 
     @staticmethod
-    def _notify_closed(callbacks: Sequence[BaseCallback[T]]) -> None:
+    def _notify_closed(callbacks: Sequence[Callback[T]]) -> None:
         original_error = sys.exception()
         for callback in reversed(callbacks):
             try:

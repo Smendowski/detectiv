@@ -11,14 +11,19 @@ from detectiv.time_series.windowing import WindowReference
 
 
 class UncoveredPolicy(StrEnum):
+    """How aggregation handles time points without window contributions."""
+
     ERROR = "error"
     EDGE_PAD = "edge_pad"
 
 
 class PointAssignment(ABC):
+    """Distribute each window's evidence over its valid source points."""
+
     @property
     @abstractmethod
     def name(self) -> str:
+        """Return the stable assignment identifier used in result keys."""
         raise NotImplementedError
 
     @abstractmethod
@@ -28,12 +33,15 @@ class PointAssignment(ABC):
 
 
 class PointScoreAggregator(ABC):
+    """Combine overlapping window contributions into one score per point."""
+
     def __init__(self, uncovered: UncoveredPolicy = UncoveredPolicy.ERROR) -> None:
         self.uncovered = uncovered
 
     @property
     @abstractmethod
     def name(self) -> str:
+        """Return the stable aggregation identifier used in result keys."""
         raise NotImplementedError
 
     def aggregate(
@@ -41,6 +49,7 @@ class PointScoreAggregator(ABC):
         contributions: WindowPointScoreBatch,
         series_length: int,
     ) -> np.ndarray:
+        """Aggregate one series's contributions into a point-score array."""
         if series_length <= 0:
             raise ValueError("series_length must be positive")
         if not contributions.references:
@@ -61,6 +70,7 @@ class PointScoreAggregator(ABC):
 
     @staticmethod
     def bounds(reference: WindowReference, series_length: int) -> tuple[int, int]:
+        """Validate and return the valid source-point bounds of one window."""
         stop = reference.start + reference.valid_length
         if reference.start < 0 or stop > series_length:
             raise ValueError("window references must lie within the original series")

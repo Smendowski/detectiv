@@ -11,12 +11,16 @@ from detectiv.ts2i.transformations.registry import register_transformation
 
 
 class SpiralInputNormalization(StrEnum):
+    """Input scaling applied before placing values on a spiral."""
+
     NONE = "none"
     UNIT_INTERVAL = "unit_interval"
 
 
 @register_transformation("SPIRAL")
 class Spiral(TS2ITransformation):
+    """Map a univariate series onto a radial spiral image."""
+
     def __init__(
         self,
         arms: int = 2,
@@ -24,6 +28,7 @@ class Spiral(TS2ITransformation):
             SpiralInputNormalization.NONE
         ),
     ) -> None:
+        """Configure the number of spiral arms and optional input scaling."""
         if arms <= 0:
             raise ValueError("arms must be positive")
         self.arms = arms
@@ -31,6 +36,11 @@ class Spiral(TS2ITransformation):
 
     @property
     def input_kinds(self) -> frozenset[TransformationInput]:
+        """Return the univariate input requirement.
+
+        Returns:
+            The univariate input category.
+        """
         return frozenset({TransformationInput.UNIVARIATE})
 
     def transform(
@@ -40,6 +50,16 @@ class Spiral(TS2ITransformation):
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:
+        """Map a univariate sequence to the configured radial layout.
+
+        Args:
+            values: One-feature time-series values.
+            size: Output image height and width.
+            rng: Unused random generator accepted by the common contract.
+
+        Returns:
+            A float32 image plane.
+        """
         series = univariate_values(values, "Spiral")
         if self.input_normalization is SpiralInputNormalization.UNIT_INTERVAL:
             series = self._normalize(series)

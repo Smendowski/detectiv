@@ -6,6 +6,11 @@ from detectiv.models.autoencoders.base import ImageEncoder
 
 
 class PVTv2B1Encoder(ImageEncoder):
+    """PVTv2-B1 feature encoder with optional pretrained frozen weights.
+
+    Requires the optional ``vision`` dependency group.
+    """
+
     def __init__(
         self,
         *,

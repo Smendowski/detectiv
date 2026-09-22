@@ -20,7 +20,7 @@ from detectiv.models.autoencoders.transfer_learning import (
     OptimizerFactory,
     TransferLearningStrategy,
 )
-from detectiv.models.runtime import resolve_device
+from detectiv.models.runtime import ComputeDevice, resolve_device
 from detectiv.runs import TrainingEpochEvent
 from detectiv.ts2i import DataLoaderSettings
 
@@ -30,11 +30,13 @@ SchedulerFactory = Callable[[optim.Optimizer], Scheduler]
 
 @dataclass(frozen=True)
 class AutoencoderTrainer:
+    """Train an autoencoder with optional validation and transfer learning."""
+
     epochs: int = 100
     batch_size: int = 32
     learning_rate: float = 1e-3
     weight_decay: float = 0.0
-    device: str = "auto"
+    device: ComputeDevice | str = ComputeDevice.AUTO
     shuffle_seed: int | None = None
     optimizer: OptimizerFactory = torch.optim.AdamW
     scheduler_factory: SchedulerFactory | None = None
@@ -74,6 +76,7 @@ class AutoencoderTrainer:
         validation_indices: Sequence[int] | NDArray[np.intp] | None = None,
         on_epoch_finished: Callable[[TrainingEpochEvent], None] | None = None,
     ) -> TrainingHistory:
+        """Fit a model to selected images and return its training history."""
         dataset = TorchImageDataset(images, indices)
         if not len(dataset):
             raise ValueError("at least one training image is required")
@@ -314,6 +317,8 @@ class AutoencoderTrainer:
 
 @dataclass(frozen=True)
 class TrainingHistory:
+    """Immutable losses, timing, and best-validation metadata from training."""
+
     training_losses: tuple[float, ...]
     validation_losses: tuple[float, ...] = ()
     best_epoch: int | None = None

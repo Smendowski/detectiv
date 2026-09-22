@@ -6,14 +6,20 @@ from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Unpack
+from typing import Protocol, Unpack
 
 import numpy as np
 import torch
 
 from detectiv.callbacks.tracking.mlflow import MlflowCallback, MlflowOptions
-from detectiv.runs import RunArtifactWriter, TrainingEpochEvent
-from detectiv.scenarios.results import ReconstructionScenarioResult
+from detectiv.runs import RunArtifactResult, RunArtifactWriter, TrainingEpochEvent
+
+
+class _ReconstructionTrackingResult(RunArtifactResult, Protocol):
+    """Reconstruction fields consumed by tracking integrations."""
+
+    @property
+    def metrics(self) -> Mapping[str, float]: ...
 
 
 @dataclass(frozen=True)
@@ -28,7 +34,7 @@ class ReconstructionMlflowModelLogging:
             raise ValueError("MLflow model names must not be empty")
 
 
-class ReconstructionMlflowCallback(MlflowCallback[ReconstructionScenarioResult]):
+class ReconstructionMlflowCallback(MlflowCallback[_ReconstructionTrackingResult]):
     """Extend generic MLflow tracking with reconstruction-specific outputs."""
 
     def __init__(
@@ -53,9 +59,19 @@ class ReconstructionMlflowCallback(MlflowCallback[ReconstructionScenarioResult])
 
     @property
     def name(self) -> str:
+        """Return the reconstruction tracking registration name.
+
+        Returns:
+            The callback registration name.
+        """
         return "mlflow_reconstruction"
 
     def on_epoch_finished(self, event: TrainingEpochEvent) -> None:
+        """Log losses, learning rates, and duration for one epoch.
+
+        Args:
+            event: Data recorded for the completed training epoch.
+        """
         metrics = {"training.loss": event.training_loss}
         if event.validation_loss is not None:
             metrics["validation.loss"] = event.validation_loss
@@ -68,7 +84,12 @@ class ReconstructionMlflowCallback(MlflowCallback[ReconstructionScenarioResult])
         metrics["training.epoch_seconds"] = event.elapsed_seconds
         self.log_metrics(metrics, step=event.epoch)
 
-    def on_run_finished(self, result: ReconstructionScenarioResult) -> None:
+    def on_run_finished(self, result: _ReconstructionTrackingResult) -> None:
+        """Log reconstruction report, evaluation, curve, and optional model.
+
+        Args:
+            result: Enriched reconstruction result received from earlier callbacks.
+        """
         self.set_tags(
             {
                 "training.epochs": str(len(result.training_losses)),
@@ -80,13 +101,16 @@ class ReconstructionMlflowCallback(MlflowCallback[ReconstructionScenarioResult])
         )
         if self._report_metrics_provider is not None:
             self._log_report_bundle(result)
+        if result.metrics:
+            self.log_metrics(result.metrics)
         if self._log_training_curve:
             self._log_curve(result)
         if self._model_logging is not None:
             self._log_model()
         super().on_run_finished(result)
+        return None
 
-    def _log_curve(self, result: ReconstructionScenarioResult) -> None:
+    def _log_curve(self, result: _ReconstructionTrackingResult) -> None:
         pyplot = importlib.import_module("matplotlib.pyplot")
         figure, axis = pyplot.subplots()
         axis.plot(
@@ -104,7 +128,7 @@ class ReconstructionMlflowCallback(MlflowCallback[ReconstructionScenarioResult])
         self.log_figure(figure, "detectiv/training_loss.png")
         pyplot.close(figure)
 
-    def _log_report_bundle(self, result: ReconstructionScenarioResult) -> None:
+    def _log_report_bundle(self, result: _ReconstructionTrackingResult) -> None:
         if self._report_metrics_provider is None:
             return
         with tempfile.TemporaryDirectory() as directory:

@@ -55,7 +55,11 @@ class RunArtifactCallback(BaseCallback[RunArtifactResult]):
 
     @property
     def name(self) -> str:
-        """Return the fixed registration name `artifacts`."""
+        """Return the fixed registration name `artifacts`.
+
+        Returns:
+            The callback registration name.
+        """
         return "artifacts"
 
     def on_run_started(self) -> None:
@@ -63,7 +67,11 @@ class RunArtifactCallback(BaseCallback[RunArtifactResult]):
         self.artifacts = None
 
     def on_run_context(self, context: RunContext) -> None:
-        """Prepare the configured or run-ID-derived artifact destination."""
+        """Prepare the configured or run-ID-derived artifact destination.
+
+        Args:
+            context: Shared run identity and output-registration context.
+        """
         self._context = context
         self.writer = RunArtifactWriter(
             self.directory or Path("artifacts") / context.identity.run_id,
@@ -77,6 +85,12 @@ class RunArtifactCallback(BaseCallback[RunArtifactResult]):
 
         The metrics provider, when configured, is called once here. Writer and
         provider errors propagate, so no result is assigned to `artifacts`.
+
+        Args:
+            result: Completed result to serialize.
+
+        Raises:
+            RuntimeError: If the callback did not receive a run context.
         """
         if self.writer is None:
             raise RuntimeError("artifact callback did not receive a run context")
@@ -89,3 +103,4 @@ class RunArtifactCallback(BaseCallback[RunArtifactResult]):
         )
         if self._context is not None:
             self._context.register_local_artifacts(self.artifacts.manifest.parent)
+        return None

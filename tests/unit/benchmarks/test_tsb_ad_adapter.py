@@ -5,7 +5,10 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from detectiv.benchmarks.tsb_ad import TSBADAdapter
+from detectiv.benchmarks.tsb_ad import TSBADAdapter, TSBADEvaluator
+from detectiv.callbacks import MetricsCallback
+from detectiv.models.autoencoders import TrainingHistory
+from detectiv.scenarios import ReconstructionReport
 from detectiv.time_series import TimeSeries
 
 
@@ -26,13 +29,29 @@ def test_adapter_reuses_upstream_functions_without_changing_sys_path(
     window = adapter.acf_window(
         TimeSeries(np.array([[1.0, 2.0], [3.0, 4.0]])), feature_index=1
     )
-    metrics = adapter.evaluator(sliding_window=window, thresholds=7).evaluate(
-        np.array([0.1, 0.9]), np.array([0, 1])
-    )
+    evaluator: TSBADEvaluator = adapter.evaluator(sliding_window=window, thresholds=7)
+    metrics = evaluator.evaluate(np.array([0.1, 0.9]), np.array([0, 1]))
 
     assert window == 6
     assert metrics == {"thresholds": 7.0, "window": 6.0}
     assert tuple(sys.path) == path_before
+
+
+def test_tsb_ad_evaluator_is_compatible_with_metrics_callback(tmp_path: Path) -> None:
+    evaluator = TSBADAdapter(_source(tmp_path)).evaluator(sliding_window=3)
+    report = ReconstructionReport(
+        window_scores={},
+        point_scores={"plan": {"mean": {"series": np.array([0.1, 0.9])}}},
+        point_labels={"series": np.array([0, 1])},
+        training=TrainingHistory((0.5,)),
+    )
+
+    result = MetricsCallback(evaluator).on_run_finished(report)
+
+    assert result.metrics == {
+        "plan.mean.series.thresholds": 250.0,
+        "plan.mean.series.window": 3.0,
+    }
 
 
 def test_adapter_rejects_invalid_source_directories(tmp_path: Path) -> None:

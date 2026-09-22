@@ -11,8 +11,15 @@ from detectiv.ts2i.transformations.registry import register_transformation
 
 @register_transformation("LG")
 class LineGrid(TS2ITransformation):
+    """Render each multivariate feature as a tiled line-plot cell."""
+
     @property
     def input_kinds(self) -> frozenset[TransformationInput]:
+        """Return the multivariate input requirement.
+
+        Returns:
+            The multivariate input category.
+        """
         return frozenset({TransformationInput.MULTIVARIATE})
 
     def transform(
@@ -22,6 +29,19 @@ class LineGrid(TS2ITransformation):
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:
+        """Tile one line plot per feature and resize the grid.
+
+        Args:
+            values: Two-dimensional time-major feature values.
+            size: Output image height and width.
+            rng: Unused random generator accepted by the common contract.
+
+        Returns:
+            A float32 image plane.
+
+        Raises:
+            ValueError: If no feature dimension is supplied.
+        """
         if values.ndim != 2:
             raise ValueError("LineGrid requires two-dimensional values")
         n_features = values.shape[1]

@@ -29,4 +29,7 @@ docs:
 build:
     uv build --no-sources
 
-check: lint typecheck test docs build
+package-smoke: build
+    scripts/package-smoke.sh
+
+check: lint typecheck test docs package-smoke

@@ -4,16 +4,17 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from time import perf_counter
 from types import MappingProxyType
+from typing import cast
 
 import numpy as np
 
-from detectiv.callbacks.base import BaseCallback
+from detectiv.callbacks.base import Callback
 from detectiv.images import ImageDataset
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.protocols import TrainingMode
 from detectiv.runs import JSONValue, ReproducibilitySettings
 from detectiv.scenarios.base import BaseScenario
-from detectiv.scenarios.results import ReconstructionScenarioResult
+from detectiv.scenarios.results import ReconstructionReport
 from detectiv.scoring import (
     ReconstructionScoringPlan,
     WindowEvidenceBatch,
@@ -23,6 +24,8 @@ from detectiv.time_series import TemporalSplit
 
 @dataclass(frozen=True)
 class ReconstructionScenarioInspection:
+    """Read-only preflight summary of a reconstruction scenario."""
+
     train_images: int
     validation_images: int | None
     test_images: int
@@ -31,6 +34,11 @@ class ReconstructionScenarioInspection:
     callbacks: tuple[str, ...]
 
     def summary(self) -> str:
+        """Return a concise human-readable preflight summary.
+
+        Returns:
+            A multiline summary of data, model, scoring, and callback settings.
+        """
         validation = (
             "none" if self.validation_images is None else str(self.validation_images)
         )
@@ -44,7 +52,9 @@ class ReconstructionScenarioInspection:
         )
 
 
-class ReconstructionScenario(BaseScenario[ReconstructionScenarioResult]):
+class ReconstructionScenario(BaseScenario[ReconstructionReport]):
+    """Train an autoencoder and score reconstruction evidence on test images."""
+
     scenario_type = "reconstruction"
 
     def __init__(
@@ -54,7 +64,7 @@ class ReconstructionScenario(BaseScenario[ReconstructionScenarioResult]):
         model: Autoencoder,
         training_mode: TrainingMode,
         scoring_plans: Sequence[ReconstructionScoringPlan],
-        callbacks: Sequence[BaseCallback[ReconstructionScenarioResult]] = (),
+        callbacks: Sequence[Callback[ReconstructionReport]] = (),
         trainer: AutoencoderTrainer | None = None,
         reproducibility: ReproducibilitySettings | None = None,
     ) -> None:
@@ -69,7 +79,7 @@ class ReconstructionScenario(BaseScenario[ReconstructionScenarioResult]):
         super().__init__(callbacks=callbacks, reproducibility=reproducibility)
         self.trainer = trainer or AutoencoderTrainer()
 
-    def _run(self) -> ReconstructionScenarioResult:
+    def _run(self) -> ReconstructionReport:
         if not len(self.images.test):
             raise ValueError("test images must contain at least one window")
 
@@ -103,10 +113,12 @@ class ReconstructionScenario(BaseScenario[ReconstructionScenarioResult]):
         )
         propagation_seconds = perf_counter() - propagation_started
 
-        return ReconstructionScenarioResult(
+        input_provenance = getattr(self.images, "provenance", None)
+        return ReconstructionReport(
             window_scores=MappingProxyType(window_scores),
             point_scores=point_scores,
             training=training,
+            point_labels=self.images.test.point_labels,
             callbacks=MappingProxyType(
                 {callback.name: callback for callback in self.callbacks}
             ),
@@ -117,6 +129,11 @@ class ReconstructionScenario(BaseScenario[ReconstructionScenarioResult]):
             ),
             resolved_inputs={
                 "scenario": _type_name(self),
+                **(
+                    {}
+                    if input_provenance is None
+                    else {"input_provenance": cast(JSONValue, input_provenance)}
+                ),
                 "data": {
                     "train": _dataset_record(self.images.train),
                     "validation": (
@@ -160,6 +177,11 @@ class ReconstructionScenario(BaseScenario[ReconstructionScenarioResult]):
         )
 
     def inspect(self) -> ReconstructionScenarioInspection:
+        """Return input, scoring, and callback details without executing work.
+
+        Returns:
+            A read-only summary of the configured reconstruction scenario.
+        """
         return ReconstructionScenarioInspection(
             train_images=len(self.images.train),
             validation_images=None
@@ -219,8 +241,8 @@ def _dataset_record(dataset: ImageDataset) -> dict[str, JSONValue]:
         "window_count": len(dataset),
         "series_lengths": dict(dataset.series_lengths),
     }
-    if "ts2i_performance" in dataset.metadata:
-        record["ts2i_performance"] = dataset.metadata["ts2i_performance"]  # type: ignore[assignment]
+    if dataset.metadata:
+        record["metadata"] = cast(JSONValue, dict(dataset.metadata))
     return record
 
 

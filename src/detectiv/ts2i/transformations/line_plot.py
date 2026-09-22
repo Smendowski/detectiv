@@ -45,8 +45,15 @@ def _draw_line(
 
 @register_transformation("LP")
 class LinePlot(TS2ITransformation):
+    """Render a normalized univariate series as a rasterized line plot."""
+
     @property
     def input_kinds(self) -> frozenset[TransformationInput]:
+        """Return the univariate input requirement.
+
+        Returns:
+            The univariate input category.
+        """
         return frozenset({TransformationInput.UNIVARIATE})
 
     def transform(
@@ -56,6 +63,16 @@ class LinePlot(TS2ITransformation):
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:
+        """Rasterize one normalized time series as a line plot.
+
+        Args:
+            values: One-feature values expected in the unit interval.
+            size: Output image height and width.
+            rng: Unused random generator accepted by the common contract.
+
+        Returns:
+            A float32 image plane.
+        """
         series = univariate_values(values, "LinePlot")
         source = _draw_line(series, max(size))
         image = resize(  # type: ignore[no-untyped-call]

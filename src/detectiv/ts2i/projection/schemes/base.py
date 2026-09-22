@@ -10,11 +10,28 @@ from detectiv.ts2i.transformations import TransformationInput, TS2ITransformatio
 
 @dataclass(frozen=True)
 class ProjectionScheme:
+    """Pair a channelization with transformations that render image channels.
+
+    Args:
+        channelization: Window-to-plane conversion used before rendering.
+    """
+
     channelization: Channelization
     _transformations: tuple[TS2ITransformation, ...] = ()
     _replication_count: int | None = None
 
     def channels(self, *transformations: TS2ITransformation) -> ProjectionScheme:
+        """Return a scheme with one transformation per derived plane.
+
+        Args:
+            transformations: Renderers, one for each channelization output.
+
+        Returns:
+            A new channel-configured scheme.
+
+        Raises:
+            ValueError: If no transformations are supplied.
+        """
         if not transformations:
             raise ValueError("at least one transformation is required")
         return replace(
@@ -24,6 +41,18 @@ class ProjectionScheme:
         )
 
     def replicate(self, *, n_channels: int) -> ProjectionScheme:
+        """Repeat one configured transformation output across ``n_channels``.
+
+        Args:
+            n_channels: Positive number of repeated output channels.
+
+        Returns:
+            A new replicated scheme.
+
+        Raises:
+            ValueError: If the channel count is invalid or not exactly one
+                transformation is configured.
+        """
         if n_channels <= 0:
             raise ValueError("n_channels must be positive")
         if len(self._transformations) != 1:
@@ -32,6 +61,11 @@ class ProjectionScheme:
 
     @property
     def n_channels(self) -> int:
+        """Return the number of channels rendered by this scheme.
+
+        Returns:
+            The configured or replicated output channel count.
+        """
         if self._replication_count is not None:
             return self._replication_count
         return len(self._transformations)
@@ -43,6 +77,21 @@ class ProjectionScheme:
         *,
         rng: np.random.Generator | None = None,
     ) -> np.ndarray:
+        """Render one `(time, features)` window as a channel-first image.
+
+        Args:
+            window: Time-major source values.
+            size: Output image height and width.
+            rng: Optional random generator passed to transformations.
+
+        Returns:
+            A ``(channels, height, width)`` float array.
+
+        Raises:
+            RuntimeError: If no transformations were configured.
+            ValueError: If channelization output and transformations are
+                incompatible, or a transformation returns the wrong size.
+        """
         if not self._transformations:
             raise RuntimeError("projection scheme must define transformations")
         inputs = self.channelization.transform(window)
