@@ -11,8 +11,8 @@ import numpy as np
 import torch
 
 from detectiv.callbacks.tracking.mlflow import MlflowCallback, MlflowOptions
+from detectiv.models.autoencoders import TrainingEpochEvent
 from detectiv.reports import ReconstructionReport, ReconstructionReportWriter
-from detectiv.runs import TrainingEpochEvent
 
 
 @dataclass(frozen=True)

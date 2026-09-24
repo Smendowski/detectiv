@@ -8,7 +8,7 @@ from typing import ClassVar, Self, cast
 
 import numpy as np
 
-from detectiv.runs import JSONValue
+from detectiv.typing import JSONValue
 
 
 @dataclass(frozen=True, kw_only=True)

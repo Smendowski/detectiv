@@ -18,9 +18,9 @@ from typing import Any
 
 import numpy as np
 
+from detectiv.reports.context import CompletedRunSummary
 from detectiv.reports.reconstruction import ReconstructionReport
-from detectiv.runs.identity import CompletedRunSummary, RunIdentity, RunOutputLocator
-from detectiv.runs.metadata import JSONValue
+from detectiv.typing import JSONValue
 
 _REPORT_SCHEMA_VERSION = 3
 
@@ -121,13 +121,9 @@ class ReportArtifacts:
         if mlflow_run_id is not None and not isinstance(mlflow_run_id, str):
             raise ValueError("run report defines an invalid MLflow run ID")
         return CompletedRunSummary(
-            RunIdentity(run["detectiv_id"]),
-            local_artifacts=RunOutputLocator(location=self.manifest.parent),
-            mlflow=(
-                None
-                if mlflow_run_id is None
-                else RunOutputLocator(native_run_id=mlflow_run_id)
-            ),
+            run_id=run["detectiv_id"],
+            artifact_location=self.manifest.parent,
+            mlflow_run_id=mlflow_run_id,
         )
 
     def load_scores(self) -> Mapping[str, np.ndarray]:

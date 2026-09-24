@@ -4,8 +4,8 @@ from uuid import UUID
 import pytest
 
 from detectiv.callbacks import BaseCallback
+from detectiv.reports import RunContext
 from detectiv.reproducibility import ReproducibilitySettings
-from detectiv.runs import RunContext
 from detectiv.scenarios import BaseScenario
 
 
@@ -106,9 +106,9 @@ def test_base_scenario_exposes_one_uuid_context_and_completed_summary() -> None:
     scenario.run()
 
     assert len(contexts) == 1
-    UUID(contexts[0].identity.run_id)
+    UUID(contexts[0].run_id)
     assert scenario.completed_run is not None
-    assert scenario.completed_run.run_id == contexts[0].identity.run_id
+    assert scenario.completed_run.run_id == contexts[0].run_id
     assert scenario.completed_run.artifact_location is None
     assert scenario.completed_run.mlflow_run_id is None
 

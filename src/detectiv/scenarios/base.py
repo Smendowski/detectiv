@@ -4,13 +4,9 @@ from collections.abc import Sequence
 from uuid import uuid4
 
 from detectiv.callbacks.base import Callback
+from detectiv.models.autoencoders import TrainingEpochEvent
+from detectiv.reports import CompletedRunSummary, RunContext
 from detectiv.reproducibility import ReproducibilitySettings
-from detectiv.runs import (
-    CompletedRunSummary,
-    RunContext,
-    RunIdentity,
-    TrainingEpochEvent,
-)
 
 
 class BaseScenario[T](ABC):
@@ -40,7 +36,7 @@ class BaseScenario[T](ABC):
             BaseException: Propagates scenario and callback lifecycle failures.
         """
         started: list[Callback[T]] = []
-        context = RunContext(RunIdentity(str(uuid4())), self.scenario_type)
+        context = RunContext(str(uuid4()), self.scenario_type)
         self.completed_run = None
 
         try:

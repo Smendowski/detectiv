@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
-    from detectiv.runs import RunContext, TrainingEpochEvent
+    from detectiv.models.autoencoders import TrainingEpochEvent
+    from detectiv.reports import RunContext
 
 
 class Callback[T](Protocol):

@@ -13,9 +13,9 @@ from detectiv.reports import (
     ReconstructionReportWriter,
     ReportArtifacts,
 )
-from detectiv.runs import JSONValue
 from detectiv.scoring import WindowScoreBatch
 from detectiv.time_series.windowing import WindowReference
+from detectiv.typing import JSONValue
 
 
 def test_report_writer_separates_manifest_and_point_scores(

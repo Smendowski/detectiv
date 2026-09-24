@@ -11,7 +11,6 @@ def test_public_scenario_and_callback_namespaces_import_together() -> None:
     import detectiv.protocols
     import detectiv.reports
     import detectiv.reproducibility
-    import detectiv.runs
     import detectiv.scenarios
 
     assert detectiv.callbacks.BaseCallback.__name__ == "BaseCallback"
@@ -40,7 +39,12 @@ def test_public_scenario_and_callback_namespaces_import_together() -> None:
     "module",
     (
         "detectiv.models.events",
+        "detectiv.runs",
         "detectiv.runs.artifacts",
+        "detectiv.runs.context",
+        "detectiv.runs.events",
+        "detectiv.runs.identity",
+        "detectiv.runs.metadata",
         "detectiv.runs.reproducibility",
         "detectiv.scenarios.artifacts",
         "detectiv.scenarios.results",
@@ -54,15 +58,10 @@ def test_obsolete_internal_modules_are_not_importable(module: str) -> None:
 
 def test_domain_namespaces_do_not_reexport_other_domain_contracts() -> None:
     import detectiv.models
-    import detectiv.runs
     import detectiv.scenarios
 
     assert not hasattr(detectiv.models, "TrainingEpochEvent")
     assert not hasattr(detectiv.scenarios, "ReproducibilitySettings")
-    assert not hasattr(detectiv.runs, "ReportArtifacts")
-    assert not hasattr(detectiv.runs, "ReconstructionReportWriter")
-    assert not hasattr(detectiv.runs, "ReproducibilitySettings")
-    assert not hasattr(detectiv.runs, "configure_reproducibility")
     assert not hasattr(detectiv.scenarios, "ExperimentReport")
     assert not hasattr(detectiv.scenarios, "ReconstructionReport")
     assert not hasattr(detectiv.scenarios, "ReconstructionScenarioResult")
@@ -99,20 +98,6 @@ def test_time_series_package_has_no_ts2i_imports() -> None:
     )
 
 
-def test_runs_package_has_no_reproducibility_imports() -> None:
-    source_root = Path(__file__).parents[2] / "src" / "detectiv" / "runs"
-
-    imported_modules = {
-        module for path in source_root.rglob("*.py") for module in _all_imports(path)
-    }
-
-    assert not any(
-        module == "detectiv.reproducibility"
-        or module.startswith("detectiv.reproducibility.")
-        for module in imported_modules
-    )
-
-
 def test_scenarios_do_not_contain_policy_modules() -> None:
     source_root = Path(__file__).parents[2] / "src" / "detectiv" / "scenarios"
 
@@ -129,22 +114,19 @@ def test_experiment_domain_dependencies_are_one_directional() -> None:
             "models",
             "protocols",
             "reports",
-            "runs",
             "scenarios",
         )
     }
 
-    assert dependencies["runs"] == set()
     assert dependencies["protocols"] == set()
-    assert dependencies["models"] <= {"runs"}
-    assert dependencies["reports"] <= {"runs"}
-    assert dependencies["callbacks"] <= {"reports", "runs"}
+    assert dependencies["models"] == set()
+    assert dependencies["reports"] == set()
+    assert dependencies["callbacks"] <= {"models", "reports"}
     assert dependencies["scenarios"] <= {
         "callbacks",
         "models",
         "protocols",
         "reports",
-        "runs",
     }
     assert not _has_cycle(dependencies)
 
@@ -226,8 +208,7 @@ def _experiment_domains(module: str) -> set[str]:
     domain = module.removeprefix(prefix).split(".", maxsplit=1)[0]
     return (
         {domain}
-        if domain
-        in {"callbacks", "models", "protocols", "reports", "runs", "scenarios"}
+        if domain in {"callbacks", "models", "protocols", "reports", "scenarios"}
         else set()
     )
 

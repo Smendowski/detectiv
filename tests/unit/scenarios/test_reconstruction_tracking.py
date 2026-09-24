@@ -11,9 +11,8 @@ from detectiv.callbacks import (
     ReconstructionMlflowCallback,
     ReconstructionMlflowModelLogging,
 )
-from detectiv.models.autoencoders import TrainingHistory
-from detectiv.reports import ReconstructionReport
-from detectiv.runs import RunContext, RunIdentity, TrainingEpochEvent
+from detectiv.models.autoencoders import TrainingEpochEvent, TrainingHistory
+from detectiv.reports import ReconstructionReport, RunContext
 
 
 class FakeRunContext:
@@ -93,7 +92,7 @@ def test_reconstruction_callbacks_compose_explicitly(mlflow: FakeMlflow) -> None
         parameters={"trainer": {"epochs": 1}},
         tags={"study": "baseline"},
     )
-    callback.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
+    callback.on_run_context(RunContext("run", "reconstruction"))
     callback.on_run_started()
     callback.on_epoch_finished(TrainingEpochEvent(0, 0.5, 0.4, (1e-3,), 2.0))
     callback.on_run_finished(_result())
@@ -115,7 +114,7 @@ def test_generic_tracker_accepts_a_reconstruction_result_without_extensions(
     mlflow: FakeMlflow,
 ) -> None:
     tracking: MlflowCallback[ReconstructionReport] = MlflowCallback("benchmark")
-    tracking.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
+    tracking.on_run_context(RunContext("run", "reconstruction"))
     tracking.on_run_started()
     tracking.on_run_finished(_result())
     tracking.on_run_closed()
@@ -135,7 +134,7 @@ def test_completed_report_metrics_take_precedence_over_live_tracker_metrics(
     )
     report = _result().with_metrics({"evaluation.score": 0.9})
 
-    callback.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
+    callback.on_run_context(RunContext("run", "reconstruction"))
     callback.on_run_started()
     callback.on_run_finished(report)
     callback.on_run_closed()
@@ -164,7 +163,7 @@ def test_reconstruction_extension_logs_a_model_with_its_semantic_type(
         input_example=np.zeros((1, 2, 2)),
     )
 
-    callback.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
+    callback.on_run_context(RunContext("run", "reconstruction"))
     callback.on_run_started()
     callback.on_run_finished(_result())
     callback.on_run_closed()
@@ -191,7 +190,7 @@ def test_reconstruction_extension_logs_curve_and_report_bundle(
     monkeypatch.setitem(__import__("sys").modules, "matplotlib.pyplot", pyplot)
     callback = ReconstructionMlflowCallback("benchmark", log_report_bundle=True)
 
-    callback.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
+    callback.on_run_context(RunContext("run", "reconstruction"))
     callback.on_run_started()
     callback.on_run_finished(_result())
     callback.on_run_closed()

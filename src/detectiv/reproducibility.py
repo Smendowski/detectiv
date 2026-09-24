@@ -7,7 +7,7 @@ from types import MappingProxyType
 import numpy as np
 import torch
 
-from detectiv.runs.metadata import JSONValue
+from detectiv.typing import JSONValue
 
 
 @dataclass(frozen=True)

@@ -6,8 +6,7 @@ import pytest
 
 from detectiv.callbacks import MetricsCallback, ReportArtifactCallback
 from detectiv.models.autoencoders import TrainingHistory
-from detectiv.reports import ReconstructionReport
-from detectiv.runs import RunContext, RunIdentity
+from detectiv.reports import ReconstructionReport, RunContext
 from detectiv.scenarios import BaseScenario
 
 
@@ -57,7 +56,7 @@ def test_artifact_callback_uses_run_id_default_and_links_its_manifest(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     callback = ReportArtifactCallback()
-    context = RunContext(RunIdentity("detectiv-id"))
+    context = RunContext("detectiv-id")
     context.register_mlflow("native-run", "mlruns:/native-run")
     result = ReconstructionReport(
         window_scores={},

@@ -6,8 +6,8 @@ from detectiv.reports import (
     ReconstructionReport,
     ReconstructionReportWriter,
     ReportArtifacts,
+    RunContext,
 )
-from detectiv.runs import RunContext
 
 
 class ReportArtifactCallback(BaseCallback[ReconstructionReport]):
@@ -70,7 +70,7 @@ class ReportArtifactCallback(BaseCallback[ReconstructionReport]):
         """
         self._context = context
         self.writer = ReconstructionReportWriter(
-            self.directory or Path("artifacts") / context.identity.run_id,
+            self.directory or Path("artifacts") / context.run_id,
             provenance=self.provenance,
             visualize=self.visualize,
             overwrite=self.overwrite,

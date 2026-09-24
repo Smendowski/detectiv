@@ -1,5 +1,9 @@
 from detectiv.models.autoencoders.model import Autoencoder
-from detectiv.models.autoencoders.training import AutoencoderTrainer, TrainingHistory
+from detectiv.models.autoencoders.training import (
+    AutoencoderTrainer,
+    TrainingEpochEvent,
+    TrainingHistory,
+)
 from detectiv.models.autoencoders.transfer_learning import (
     DifferentialLearningRateStrategy,
     FrozenEncoderStrategy,
@@ -13,6 +17,7 @@ __all__ = [
     "DifferentialLearningRateStrategy",
     "FrozenEncoderStrategy",
     "ProgressiveEncoderUnfreezeStrategy",
+    "TrainingEpochEvent",
     "TrainingHistory",
     "TransferLearningStrategy",
 ]

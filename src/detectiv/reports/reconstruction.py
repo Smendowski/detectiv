@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 import numpy as np
 
 from detectiv.reports.base import ExperimentReport
-from detectiv.runs import JSONValue
+from detectiv.typing import JSONValue
 
 if TYPE_CHECKING:
     from detectiv.models.autoencoders import TrainingHistory

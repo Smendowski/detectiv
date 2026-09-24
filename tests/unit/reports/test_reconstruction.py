@@ -5,7 +5,7 @@ import pytest
 
 from detectiv.models.autoencoders import TrainingHistory
 from detectiv.reports import ReconstructionReport
-from detectiv.runs import JSONValue
+from detectiv.typing import JSONValue
 
 
 def _report(**metrics: float) -> ReconstructionReport:

@@ -21,11 +21,21 @@ from detectiv.models.autoencoders.transfer_learning import (
     TransferLearningStrategy,
 )
 from detectiv.models.runtime import ComputeDevice, evaluating, resolve_device
-from detectiv.runs import TrainingEpochEvent
 from detectiv.ts2i import DataLoaderSettings
 
 Scheduler = LRScheduler | ReduceLROnPlateau
 SchedulerFactory = Callable[[optim.Optimizer], Scheduler]
+
+
+@dataclass(frozen=True)
+class TrainingEpochEvent:
+    """Losses, learning rates, and duration recorded for one training epoch."""
+
+    epoch: int
+    training_loss: float
+    validation_loss: float | None
+    learning_rates: tuple[float, ...]
+    elapsed_seconds: float
 
 
 @dataclass(frozen=True)

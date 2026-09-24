@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, TypedDict
 
 from detectiv.callbacks.base import BaseCallback
-from detectiv.runs import RunContext
+from detectiv.reports import RunContext
 
 
 class MlflowOptions(TypedDict, total=False):
@@ -127,7 +127,7 @@ class MlflowCallback[T](BaseCallback[T]):
                 raise RuntimeError("MLflow callback has no active run")
             info = active_run.info
             tags = {
-                "detectiv.run_id": self._context.identity.run_id,
+                "detectiv.run_id": self._context.run_id,
                 "detectiv.run_status": "started",
             }
             if self._context.scenario_type is not None:

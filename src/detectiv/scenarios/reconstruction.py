@@ -14,13 +14,13 @@ from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.protocols import TrainingMode
 from detectiv.reports import ReconstructionReport
 from detectiv.reproducibility import ReproducibilitySettings
-from detectiv.runs import JSONValue
 from detectiv.scenarios.base import BaseScenario
 from detectiv.scoring import (
     ReconstructionScoringPlan,
     WindowEvidenceBatch,
 )
 from detectiv.time_series import TemporalSplit
+from detectiv.typing import JSONValue
 
 
 @dataclass(frozen=True)
