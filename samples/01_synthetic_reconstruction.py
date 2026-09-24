@@ -9,7 +9,7 @@ from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
 from detectiv.protocols import SemiSupervisedTraining
-from detectiv.runs import configure_reproducibility
+from detectiv.reproducibility import configure_reproducibility
 from detectiv.scenarios import ReconstructionScenario
 from detectiv.scoring import (
     MeanPointScoreAggregator,

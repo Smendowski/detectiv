@@ -8,7 +8,7 @@ import pytest
 from detectiv.benchmarks.tsb_ad import TSBADAdapter, TSBADEvaluator
 from detectiv.callbacks import MetricsCallback
 from detectiv.models.autoencoders import TrainingHistory
-from detectiv.scenarios import ReconstructionReport
+from detectiv.reports import ReconstructionReport
 from detectiv.time_series import TimeSeries
 
 

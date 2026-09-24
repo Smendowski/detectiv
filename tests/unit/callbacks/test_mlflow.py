@@ -112,7 +112,7 @@ def test_generic_tracker_supports_a_non_reconstruction_scenario(
         dataset={"name": "synthetic"},
         tags={"detectiv.run_status": "user", "detectiv.python": "user"},
         description="Generic tracking.",
-        metrics_provider=lambda: {"test": {"score": 0.9, "label": "ignored"}},
+        tracking_metrics_provider=lambda: {"test": {"score": 0.9, "label": "ignored"}},
         artifact_directories={tmp_path: "results"},
         tracking_uri="http://mlflow:5000",
     )
@@ -149,6 +149,26 @@ def test_generic_tracker_records_failure_lifecycle(mlflow: FakeMlflow) -> None:
     assert mlflow.tags["detectiv.error_type"] == "ValueError"
     assert mlflow.run.exit_arguments is not None
     assert isinstance(mlflow.run.exit_arguments[1], ValueError)
+
+
+def test_generic_tracker_records_later_publication_failure(mlflow: FakeMlflow) -> None:
+    class FailingPublisher(BaseCallback[str]):
+        @property
+        def name(self) -> str:
+            return "publisher"
+
+        def on_run_finished(self, result: str) -> None:
+            raise RuntimeError("publication failed")
+
+    scenario = TextScenario(callbacks=(MlflowCallback("benchmark"), FailingPublisher()))
+
+    with pytest.raises(RuntimeError, match="publication failed"):
+        scenario.run()
+
+    assert mlflow.tags["detectiv.run_status"] == "failed"
+    assert mlflow.tags["detectiv.error_type"] == "RuntimeError"
+    assert mlflow.run.exit_arguments is not None
+    assert isinstance(mlflow.run.exit_arguments[1], RuntimeError)
 
 
 def test_generic_tracker_rejects_publication_outside_a_run() -> None:

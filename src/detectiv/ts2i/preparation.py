@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from detectiv.images import ImageDataset, ImageShape, ImageSize
-from detectiv.runs import ReproducibilitySettings
+from detectiv.reproducibility import ReproducibilitySettings
 from detectiv.time_series import TemporalSplit, TimeSeries
 from detectiv.time_series.preprocessing import TimeSeriesPreprocessor
 from detectiv.time_series.windowing import (

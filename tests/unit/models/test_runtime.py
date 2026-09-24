@@ -2,7 +2,21 @@ import pytest
 import torch
 
 from detectiv.models import ComputeDevice
-from detectiv.models.runtime import resolve_device
+from detectiv.models.runtime import evaluating, resolve_device
+
+
+def test_evaluating_restores_mixed_modes_after_an_error() -> None:
+    model = torch.nn.Sequential(torch.nn.Linear(2, 2), torch.nn.ReLU())
+    model.train()
+    model[0].eval()
+
+    with pytest.raises(RuntimeError, match="failed"), evaluating(model):
+        assert not any(module.training for module in model.modules())
+        raise RuntimeError("failed")
+
+    assert model.training
+    assert not model[0].training
+    assert model[1].training
 
 
 def test_resolve_device_accepts_a_compute_device() -> None:

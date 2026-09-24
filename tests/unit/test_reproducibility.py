@@ -3,7 +3,10 @@ import random
 import numpy as np
 import torch
 
-from detectiv.runs import ReproducibilitySettings, configure_reproducibility
+from detectiv.reproducibility import (
+    ReproducibilitySettings,
+    configure_reproducibility,
+)
 
 
 def test_reproducibility_settings_seed_supported_random_generators() -> None:

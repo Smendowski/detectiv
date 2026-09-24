@@ -12,8 +12,8 @@ from detectiv.callbacks import (
     ReconstructionMlflowModelLogging,
 )
 from detectiv.models.autoencoders import TrainingHistory
+from detectiv.reports import ReconstructionReport
 from detectiv.runs import RunContext, RunIdentity, TrainingEpochEvent
-from detectiv.scenarios import ReconstructionScenarioResult
 
 
 class FakeRunContext:
@@ -76,8 +76,8 @@ def mlflow(monkeypatch: pytest.MonkeyPatch) -> FakeMlflow:
     return fake
 
 
-def _result() -> ReconstructionScenarioResult:
-    return ReconstructionScenarioResult(
+def _result() -> ReconstructionReport:
+    return ReconstructionReport(
         window_scores={},
         point_scores={},
         training=TrainingHistory(
@@ -114,7 +114,7 @@ def test_reconstruction_callbacks_compose_explicitly(mlflow: FakeMlflow) -> None
 def test_generic_tracker_accepts_a_reconstruction_result_without_extensions(
     mlflow: FakeMlflow,
 ) -> None:
-    tracking: MlflowCallback[ReconstructionScenarioResult] = MlflowCallback("benchmark")
+    tracking: MlflowCallback[ReconstructionReport] = MlflowCallback("benchmark")
     tracking.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
     tracking.on_run_started()
     tracking.on_run_finished(_result())
@@ -123,6 +123,27 @@ def test_generic_tracker_accepts_a_reconstruction_result_without_extensions(
     assert mlflow.tags["detectiv.run_status"] == "succeeded"
     assert not any(name.startswith("training.") for name in mlflow.tags)
     assert mlflow.metrics == []
+
+
+def test_completed_report_metrics_take_precedence_over_live_tracker_metrics(
+    mlflow: FakeMlflow,
+) -> None:
+    callback = ReconstructionMlflowCallback(
+        "benchmark",
+        log_training_curve=False,
+        tracking_metrics_provider=lambda: {"evaluation.score": 0.1},
+    )
+    report = _result().with_metrics({"evaluation.score": 0.9})
+
+    callback.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
+    callback.on_run_started()
+    callback.on_run_finished(report)
+    callback.on_run_closed()
+
+    assert [metric for metric in mlflow.metrics if metric[0] == "evaluation.score"] == [
+        ("evaluation.score", 0.1, 0),
+        ("evaluation.score", 0.9, 0),
+    ]
 
 
 def test_reconstruction_extension_logs_a_model_with_its_semantic_type(
@@ -168,9 +189,7 @@ def test_reconstruction_extension_logs_curve_and_report_bundle(
     pyplot.subplots = lambda: (figure, axis)  # type: ignore[attr-defined]
     pyplot.close = lambda value: None  # type: ignore[attr-defined]
     monkeypatch.setitem(__import__("sys").modules, "matplotlib.pyplot", pyplot)
-    callback = ReconstructionMlflowCallback(
-        "benchmark", report_metrics_provider=lambda: {"test": {"score": 0.9}}
-    )
+    callback = ReconstructionMlflowCallback("benchmark", log_report_bundle=True)
 
     callback.on_run_context(RunContext(RunIdentity("run"), "reconstruction"))
     callback.on_run_started()

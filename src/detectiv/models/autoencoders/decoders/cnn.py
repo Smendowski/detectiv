@@ -3,7 +3,7 @@ from typing import cast
 
 from torch import Tensor, nn
 
-from detectiv.models.autoencoders.base import ImageDecoder
+from detectiv.models.autoencoders.decoders.base import ImageDecoder
 from detectiv.models.autoencoders.layers import make_activation, resolve_layer_values
 
 

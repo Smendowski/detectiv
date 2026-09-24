@@ -23,7 +23,7 @@ class MlflowOptions(TypedDict, total=False):
     dataset: Mapping[str, object] | None
     tags: Mapping[str, str] | None
     description: str | None
-    metrics_provider: Callable[[], Mapping[str, object]] | None
+    tracking_metrics_provider: Callable[[], Mapping[str, object]] | None
     artifact_directories: Mapping[Path, str] | None
     nested: bool
     tracking_uri: str | None
@@ -47,7 +47,7 @@ class MlflowCallback[T](BaseCallback[T]):
         dataset: Mapping[str, object] | None = None,
         tags: Mapping[str, str] | None = None,
         description: str | None = None,
-        metrics_provider: Callable[[], Mapping[str, object]] | None = None,
+        tracking_metrics_provider: Callable[[], Mapping[str, object]] | None = None,
         artifact_directories: Mapping[Path, str] | None = None,
         nested: bool = False,
         tracking_uri: str | None = None,
@@ -62,7 +62,7 @@ class MlflowCallback[T](BaseCallback[T]):
         self.dataset = dict(dataset or {})
         self.tags = dict(tags or {})
         self.description = description
-        self.metrics_provider = metrics_provider
+        self.tracking_metrics_provider = tracking_metrics_provider
         self.artifact_directories = dict(artifact_directories or {})
         self.nested = nested
         self.tracking_uri = tracking_uri
@@ -148,8 +148,8 @@ class MlflowCallback[T](BaseCallback[T]):
             result: Successful scenario result; generic tracking does not inspect it.
         """
         self._require_active()
-        if self.metrics_provider is not None:
-            self.log_metrics(self.metrics_provider())
+        if self.tracking_metrics_provider is not None:
+            self.log_metrics(self.tracking_metrics_provider())
         for directory, artifact_path in self.artifact_directories.items():
             self.log_artifacts(directory, artifact_path=artifact_path)
         self.set_tags({"detectiv.run_status": "succeeded"})

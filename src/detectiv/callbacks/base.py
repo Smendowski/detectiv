@@ -119,7 +119,7 @@ class BaseCallback[T]:
         """Handle or replace the successful result in registration order.
 
         Returning ``None`` preserves ``result`` for the next callback. Exceptions
-        propagate directly and do not trigger `on_run_failed()`.
+        propagate after all started callbacks receive `on_run_failed()`.
 
         Args:
             result: Current result after preceding callbacks.
@@ -133,8 +133,8 @@ class BaseCallback[T]:
         """Handle failure after this callback has started.
 
         Args:
-            error: The original exception from startup, execution, or an epoch
-                hook.
+            error: The original exception from startup, execution, an epoch hook,
+                or a completion hook.
 
         Exceptions from this hook are attached as notes to the original error
         when they are `Exception` instances; they never replace it.

@@ -3,7 +3,7 @@ from typing import cast
 
 from torch import Tensor, nn
 
-from detectiv.models.autoencoders.base import ImageBottleneck
+from detectiv.models.autoencoders.bottlenecks.base import ImageBottleneck
 from detectiv.models.autoencoders.layers import make_activation
 
 

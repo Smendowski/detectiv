@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Protocol, Self
+from typing import Protocol
 
 import numpy as np
 
 from detectiv.callbacks.base import BaseCallback
+from detectiv.reports import ReconstructionReport
 
 
 class _Evaluator(Protocol):
@@ -14,19 +15,7 @@ class _Evaluator(Protocol):
     ) -> Mapping[str, float]: ...
 
 
-class _MetricsReport(Protocol):
-    @property
-    def point_scores(
-        self,
-    ) -> Mapping[str, Mapping[str, np.ndarray]]: ...
-
-    @property
-    def point_labels(self) -> np.ndarray | None: ...
-
-    def with_metrics(self, metrics: Mapping[str, float]) -> Self: ...
-
-
-class MetricsCallback(BaseCallback[_MetricsReport]):
+class MetricsCallback(BaseCallback[ReconstructionReport]):
     """Evaluate every reconstructed point-score series after a successful run.
 
     Args:
@@ -49,7 +38,7 @@ class MetricsCallback(BaseCallback[_MetricsReport]):
         """
         return "metrics"
 
-    def on_run_finished[T: _MetricsReport](self, result: T) -> T:
+    def on_run_finished(self, result: ReconstructionReport) -> ReconstructionReport:
         """Evaluate all point scores and return a metric-enriched report.
 
         Args:

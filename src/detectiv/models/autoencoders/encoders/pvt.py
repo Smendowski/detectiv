@@ -2,7 +2,7 @@ from typing import cast
 
 from torch import Tensor
 
-from detectiv.models.autoencoders.base import ImageEncoder
+from detectiv.models.autoencoders.encoders.base import ImageEncoder
 
 
 class PVTv2B1Encoder(ImageEncoder):

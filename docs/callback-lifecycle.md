@@ -5,9 +5,9 @@ scoring configuration. The callback is supplied through the scenario's existing
 `callbacks` argument:
 
 ```python
-from detectiv.callbacks import RunArtifactCallback, TimingCallback
+from detectiv.callbacks import ReportArtifactCallback, TimingCallback
 
-reporter = RunArtifactCallback("artifacts/my-run")
+reporter = ReportArtifactCallback("artifacts/my-run")
 timer = TimingCallback()
 
 scenario = ReconstructionScenario(
@@ -42,11 +42,10 @@ ordered chain. It always calls `on_run_closed()` afterwards in reverse
 registration order for callbacks whose start hook completed, allowing
 resource-owning callbacks such as `MlflowCallback` to clean up reliably.
 
-If startup, training, scoring, propagation, or an epoch hook raises, only
-callbacks whose start hook already returned receive `on_run_failed(error)`, in
-registration order. Exceptions raised while reporting failure are appended as
-notes to the original error rather than replacing it. In contrast, an exception
-from `on_run_finished()` propagates directly and does not cause failure hooks.
+If startup, training, scoring, propagation, an epoch hook, or a completion hook
+raises, only callbacks whose start hook already returned receive
+`on_run_failed(error)`, in registration order. Exceptions raised while reporting
+failure are appended as notes to the original error rather than replacing it.
 
 `TimingCallback` records the interval from its own start hook through its
 successful or failed terminal hook. Its value is therefore unavailable before a
@@ -65,39 +64,41 @@ returns metrics named `<plan>.<propagation>.<metric>`. Write the report
 returned by `scenario.run()` to persist those metrics; do not pass labels to the
 callback separately.
 
-Use `RunArtifactCallback` to publish a local, verified run bundle only after
-success. Supply `metrics_provider` for completion metrics, `provenance` for
-metadata, and `visualize=True` when its optional visualization dependencies are
-available. Its writer rejects an existing non-empty destination unless
+Use `ReportArtifactCallback` to publish a local, verified report bundle only
+after success. It persists the completed report's metrics, so register
+`MetricsCallback` before it when metrics should be included. Supply `provenance`
+for metadata and `visualize=True` when its optional visualization dependencies
+are available. Its writer rejects an existing non-empty destination unless
 `overwrite=True`.
 
 Use `MlflowCallback` to track a scenario in MLflow. Install its optional
 dependency first. The callback owns the MLflow run lifecycle. For reconstruction,
-compose the generic and reconstruction-specific callbacks explicitly:
+use `ReconstructionMlflowCallback`, which extends the generic callback:
 
 ```console
 uv sync --extra experiment
 ```
 
 ```python
-from detectiv.callbacks import MlflowCallback, ReconstructionMlflowCallback
+from detectiv.callbacks import ReconstructionMlflowCallback
 from detectiv.scenarios import ReconstructionScenario
 
-tracking = MlflowCallback()
+tracking = ReconstructionMlflowCallback()
 scenario = ReconstructionScenario(
     images=images,
     model=model,
     training_mode=training_mode,
     scoring_plans=scoring_plans,
-    callbacks=(tracking, ReconstructionMlflowCallback(tracking)),
+    callbacks=(tracking,),
 )
 result = scenario.run()
 ```
 
-The generic callback records lifecycle tags; the reconstruction extension records
-epoch metrics, reports, curves, and optional model artifacts. Configure metadata
-and metric providers on `MlflowCallback`; the [MLflow API](api/callbacks/mlflow.md)
-defines generic tracking and the [reconstruction tracking API](api/callbacks/tracking/reconstruction.md)
+The inherited generic behavior records lifecycle tags; the reconstruction
+callback also records epoch metrics, reports, curves, and optional model
+artifacts. Configure generic metadata and metric providers directly on either
+callback. The [MLflow API](api/callbacks/mlflow.md) defines generic tracking and
+the [reconstruction tracking API](api/callbacks/tracking/reconstruction.md)
 defines reconstruction-specific behavior.
 
 See the [base contract](api/callbacks/base.md),

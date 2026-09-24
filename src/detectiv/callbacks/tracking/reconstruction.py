@@ -2,24 +2,17 @@ from __future__ import annotations
 
 import importlib
 import tempfile
-from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, Unpack
+from typing import Unpack
 
 import numpy as np
 import torch
 
 from detectiv.callbacks.tracking.mlflow import MlflowCallback, MlflowOptions
-from detectiv.runs import RunArtifactResult, RunArtifactWriter, TrainingEpochEvent
-
-
-class _ReconstructionTrackingResult(RunArtifactResult, Protocol):
-    """Reconstruction fields consumed by tracking integrations."""
-
-    @property
-    def metrics(self) -> Mapping[str, float]: ...
+from detectiv.reports import ReconstructionReport, ReconstructionReportWriter
+from detectiv.runs import TrainingEpochEvent
 
 
 @dataclass(frozen=True)
@@ -34,14 +27,14 @@ class ReconstructionMlflowModelLogging:
             raise ValueError("MLflow model names must not be empty")
 
 
-class ReconstructionMlflowCallback(MlflowCallback[_ReconstructionTrackingResult]):
+class ReconstructionMlflowCallback(MlflowCallback[ReconstructionReport]):
     """Extend generic MLflow tracking with reconstruction-specific outputs."""
 
     def __init__(
         self,
         experiment_name: str = "experiments",
         *,
-        report_metrics_provider: Callable[[], Mapping[str, object]] | None = None,
+        log_report_bundle: bool = False,
         log_training_curve: bool = True,
         model_logging: ReconstructionMlflowModelLogging | None = None,
         model: torch.nn.Module | None = None,
@@ -51,7 +44,7 @@ class ReconstructionMlflowCallback(MlflowCallback[_ReconstructionTrackingResult]
         if model_logging is not None and (model is None or input_example is None):
             raise ValueError("model logging requires model and input_example")
         super().__init__(experiment_name, **tracking_options)
-        self._report_metrics_provider = report_metrics_provider
+        self._log_report_bundle_enabled = log_report_bundle
         self._log_training_curve = log_training_curve
         self._model_logging = model_logging
         self._model = model
@@ -84,7 +77,7 @@ class ReconstructionMlflowCallback(MlflowCallback[_ReconstructionTrackingResult]
         metrics["training.epoch_seconds"] = event.elapsed_seconds
         self.log_metrics(metrics, step=event.epoch)
 
-    def on_run_finished(self, result: _ReconstructionTrackingResult) -> None:
+    def on_run_finished(self, result: ReconstructionReport) -> None:
         """Log reconstruction report, evaluation, curve, and optional model.
 
         Args:
@@ -99,18 +92,18 @@ class ReconstructionMlflowCallback(MlflowCallback[_ReconstructionTrackingResult]
                 ),
             }
         )
-        if self._report_metrics_provider is not None:
+        if self._log_report_bundle_enabled:
             self._log_report_bundle(result)
-        if result.metrics:
-            self.log_metrics(result.metrics)
         if self._log_training_curve:
             self._log_curve(result)
         if self._model_logging is not None:
             self._log_model()
         super().on_run_finished(result)
+        if result.metrics:
+            self.log_metrics(result.metrics)
         return None
 
-    def _log_curve(self, result: _ReconstructionTrackingResult) -> None:
+    def _log_curve(self, result: ReconstructionReport) -> None:
         pyplot = importlib.import_module("matplotlib.pyplot")
         figure, axis = pyplot.subplots()
         axis.plot(
@@ -128,18 +121,16 @@ class ReconstructionMlflowCallback(MlflowCallback[_ReconstructionTrackingResult]
         self.log_figure(figure, "detectiv/training_loss.png")
         pyplot.close(figure)
 
-    def _log_report_bundle(self, result: _ReconstructionTrackingResult) -> None:
-        if self._report_metrics_provider is None:
-            return
+    def _log_report_bundle(self, result: ReconstructionReport) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            artifacts = RunArtifactWriter(
+            artifacts = ReconstructionReportWriter(
                 Path(directory),
                 provenance={
                     "configuration": self.configuration,
                     "dataset": self.dataset,
                     "parameters": self.parameters,
                 },
-            ).write(result, metrics=self._report_metrics_provider())
+            ).write(result)
             self.log_artifacts(artifacts.manifest.parent)
 
     def _log_model(self) -> None:

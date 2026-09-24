@@ -3,7 +3,8 @@ from torch import Tensor
 
 from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.models.autoencoders import Autoencoder
-from detectiv.models.autoencoders.base import ImageDecoder, ImageEncoder
+from detectiv.models.autoencoders.decoders import ImageDecoder
+from detectiv.models.autoencoders.encoders import ImageEncoder
 from detectiv.scoring.reconstruction import MeanSquaredWindowReconstructionError
 from detectiv.time_series.windowing import WindowReference
 
@@ -41,3 +42,23 @@ def test_window_error_collapses_the_reconstruction_error() -> None:
     )
 
     np.testing.assert_allclose(scores.values, [1.0])
+
+
+def test_scoring_preserves_mixed_module_modes() -> None:
+    images = ImageDataset(
+        "images",
+        image_shape=ImageShape(1, 2, 4),
+        window_references=(WindowReference("series", 0, 4, 4),),
+        source=ArrayImageSource(),
+        series_id="series",
+        series_length=4,
+    )
+    model = Autoencoder(IdentityEncoder(), ZeroDecoder())
+    model.train()
+    model.encoder.eval()
+
+    MeanSquaredWindowReconstructionError().score(model, images)
+
+    assert model.training
+    assert not model.encoder.training
+    assert model.decoder.training

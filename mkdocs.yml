@@ -112,6 +112,7 @@ nav:
           - Overview: api/scenarios/index.md
           - Base: api/scenarios/base.md
           - Reconstruction: api/scenarios/reconstruction.md
-          - Results: api/scenarios/results.md
+      - Reports: api/reports.md
+      - Reproducibility: api/reproducibility.md
       - Runs: api/runs.md
   - Development: development.md

@@ -44,6 +44,16 @@ Window evidence is propagated only over the test suffix. Reconstruction point
 scores have shape `plan -> propagation -> array`, point labels are one array,
 and metric names are `<plan>.<propagation>.<metric>`.
 
+## Reports And Runs
+
+Scenarios construct reports, while callbacks may enrich or publish them.
+`detectiv.reports` owns in-memory reports and reconstruction report bundles;
+`detectiv.runs` owns execution identity, context, events, output discovery, and
+foundational JSON metadata. Reproducibility configuration lives in
+`detectiv.reproducibility`. Reports and reproducibility may depend on runs, but
+runs does not depend on either. Image dataset artifacts remain under
+`detectiv.images.io`.
+
 ## TS2I Flow
 
 ```python

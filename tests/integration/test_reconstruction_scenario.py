@@ -10,12 +10,9 @@ from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
 from detectiv.protocols import SemiSupervisedTraining
-from detectiv.runs import ReproducibilitySettings
-from detectiv.scenarios import (
-    ExperimentReport,
-    ReconstructionReport,
-    ReconstructionScenario,
-)
+from detectiv.reports import ExperimentReport, ReconstructionReport
+from detectiv.reproducibility import ReproducibilitySettings
+from detectiv.scenarios import ReconstructionScenario
 from detectiv.scoring import (
     MeanPointScoreAggregator,
     MeanSquaredWindowReconstructionError,
@@ -161,7 +158,7 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
     )
     with pytest.raises(TypeError):
         result.point_scores["other"] = {}  # type: ignore[index]
-    assert result.callbacks["timing"] is timer
+    assert not hasattr(result, "callbacks")
     assert result.point_labels is not None
     np.testing.assert_array_equal(result.point_labels, [0, 0, 1, 1, 0, 0])
     assert timer.elapsed_seconds is not None
@@ -192,10 +189,22 @@ def test_reconstruction_scenario_runs_from_images_to_point_scores() -> None:
     assert isinstance(scoring_plans[0], Mapping)
     assert trainer["epochs"] == 1
     assert scoring_plans[0]["name"] == "mean_squared_window"
+    performance = result.resolved_inputs["performance"]
+    assert isinstance(performance, Mapping)
+    assert set(performance) == {
+        "training_seconds",
+        "validation_seconds",
+        "scoring_seconds",
+        "propagation_seconds",
+    }
+    assert all(
+        isinstance(duration, float) and duration >= 0
+        for duration in performance.values()
+    )
     json.dumps(result.resolved_inputs)
 
 
-def test_callback_failure_after_completion_is_not_reported_as_run_failure() -> None:
+def test_completion_callback_failure_propagates() -> None:
     images = _images(
         values=[np.zeros((1, 4, 4))],
         references=(WindowReference("series", 0, 4, 4),),

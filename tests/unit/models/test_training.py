@@ -5,6 +5,7 @@ from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.models.autoencoders import (
     Autoencoder,
     AutoencoderTrainer,
+    FrozenEncoderStrategy,
 )
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
@@ -66,6 +67,26 @@ def test_trainer_reports_an_event_for_each_epoch() -> None:
     )
     assert [event.learning_rates for event in events] == [(1e-3,), (1e-3,)]
     assert all(event.elapsed_seconds >= 0 for event in events)
+
+
+def test_validation_preserves_a_frozen_encoder_mode() -> None:
+    model = _model()
+
+    AutoencoderTrainer(
+        epochs=1,
+        batch_size=1,
+        device="cpu",
+        transfer_strategy=FrozenEncoderStrategy(),
+    ).fit(
+        model,
+        _images(),
+        [0],
+        validation=_images(),
+        validation_indices=[0],
+    )
+
+    assert model.training
+    assert not model.encoder.training
 
 
 def _images() -> ImageDataset:

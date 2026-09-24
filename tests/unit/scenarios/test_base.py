@@ -4,7 +4,8 @@ from uuid import UUID
 import pytest
 
 from detectiv.callbacks import BaseCallback
-from detectiv.runs import ReproducibilitySettings, RunContext
+from detectiv.reproducibility import ReproducibilitySettings
+from detectiv.runs import RunContext
 from detectiv.scenarios import BaseScenario
 
 
@@ -201,7 +202,7 @@ def test_base_scenario_chains_replacements_and_returns_the_final_result() -> Non
     ]
 
 
-def test_completion_callback_failure_propagates_without_failure_notification() -> None:
+def test_completion_callback_failure_enters_failure_lifecycle() -> None:
     events: list[str] = []
 
     with pytest.raises(RuntimeError, match="finished"):
@@ -221,6 +222,9 @@ def test_completion_callback_failure_propagates_without_failure_notification() -
         "later:started",
         "first:finished:result",
         "failing:finished:result",
+        "first:failed:RuntimeError",
+        "failing:failed:RuntimeError",
+        "later:failed:RuntimeError",
         "later:closed",
         "failing:closed",
         "first:closed",

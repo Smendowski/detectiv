@@ -3,7 +3,7 @@ from typing import cast
 import torch
 from torch import Tensor, nn
 
-from detectiv.models.autoencoders.base import ImageEncoder
+from detectiv.models.autoencoders.encoders.base import ImageEncoder
 
 
 class ResNet18Encoder(ImageEncoder):

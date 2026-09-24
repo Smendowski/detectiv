@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from detectiv.models.autoencoders import TrainingHistory
+from detectiv.reports import ReconstructionReport
 from detectiv.runs import JSONValue
-from detectiv.scenarios import ReconstructionReport
 
 
 def _report(**metrics: float) -> ReconstructionReport:

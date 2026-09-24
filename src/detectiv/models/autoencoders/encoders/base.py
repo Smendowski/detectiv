@@ -20,19 +20,3 @@ class ImageEncoder(nn.Module, ABC):
         """Enable gradient updates for every encoder parameter."""
         for parameter in self.parameters():
             parameter.requires_grad = True
-
-
-class ImageDecoder(nn.Module, ABC):
-    """Decode latent embeddings into channel-first images."""
-
-    @abstractmethod
-    def forward(self, embeddings: Tensor) -> Tensor:
-        raise NotImplementedError
-
-
-class ImageBottleneck(nn.Module, ABC):
-    """Transform autoencoder embeddings between encoder and decoder."""
-
-    @abstractmethod
-    def forward(self, embeddings: Tensor) -> Tensor:
-        raise NotImplementedError

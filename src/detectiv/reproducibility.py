@@ -7,15 +7,18 @@ from types import MappingProxyType
 import numpy as np
 import torch
 
-from detectiv.runs.artifacts import JSONValue
+from detectiv.runs.metadata import JSONValue
 
 
 @dataclass(frozen=True)
 class ReproducibilitySettings:
+    """Deterministic random-generator settings shared across a pipeline."""
+
     seed: int = 0
     deterministic_algorithms: bool = True
 
     def apply(self) -> None:
+        """Apply the configured seed and Torch determinism settings."""
         random.seed(self.seed)
         np.random.seed(self.seed)
         torch.manual_seed(self.seed)
@@ -26,6 +29,14 @@ class ReproducibilitySettings:
         torch.backends.cudnn.deterministic = self.deterministic_algorithms
 
     def record(self, *, device: str | None = None) -> Mapping[str, JSONValue]:
+        """Return the JSON-compatible execution configuration.
+
+        Args:
+            device: Optional execution device recorded with the settings.
+
+        Returns:
+            Immutable reproducibility metadata for an experiment report.
+        """
         return MappingProxyType(
             {
                 "seed": self.seed,
@@ -41,10 +52,6 @@ def configure_reproducibility(
     seed: int = 0, *, deterministic_algorithms: bool = True
 ) -> ReproducibilitySettings:
     """Configure supported random generators and return the applied settings.
-
-    Call this before constructing models or other randomly initialized objects.
-    Pass the returned settings to later pipeline stages so they can derive
-    deterministic local generators and record the run configuration.
 
     Args:
         seed: Seed applied to Python, NumPy, Torch, and available CUDA devices.

@@ -14,66 +14,38 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Protocol
+from typing import Any
 
 import numpy as np
 
+from detectiv.reports.reconstruction import ReconstructionReport
 from detectiv.runs.identity import CompletedRunSummary, RunIdentity, RunOutputLocator
+from detectiv.runs.metadata import JSONValue
 
 _REPORT_SCHEMA_VERSION = 3
 
-type JSONValue = (
-    bool | int | float | str | Sequence[JSONValue] | Mapping[str, JSONValue] | None
-)
-
-
-class _TrainingSummary(Protocol):
-    @property
-    def best_epoch(self) -> int | None: ...
-
-    @property
-    def best_validation_loss(self) -> float | None: ...
-
-    @property
-    def device(self) -> str | None: ...
-
-
-class RunArtifactResult(Protocol):
-    @property
-    def point_scores(self) -> Mapping[str, Mapping[str, np.ndarray]]: ...
-
-    @property
-    def training(self) -> _TrainingSummary: ...
-
-    @property
-    def training_losses(self) -> tuple[float, ...]: ...
-
-    @property
-    def validation_losses(self) -> tuple[float, ...]: ...
-
-    @property
-    def reproducibility(self) -> Mapping[str, JSONValue]: ...
-
-    @property
-    def resolved_inputs(self) -> Mapping[str, JSONValue]: ...
-
-    def record(self) -> Mapping[str, JSONValue]:
-        """Return JSON-compatible report metadata for persistence.
-
-        Returns:
-            Report metadata excluding separately persisted point-score arrays.
-        """
-        ...
-
 
 @dataclass(frozen=True)
-class RunArtifacts:
+class ReportArtifacts:
+    """Paths and verified accessors for one persisted report bundle."""
+
     manifest: Path
     point_scores: Path
     figures: tuple[Path, ...] = ()
 
     @classmethod
-    def open(cls, directory: Path) -> RunArtifacts:
+    def open(cls, directory: Path) -> ReportArtifacts:
+        """Open a schema-compatible report bundle without hashing its files.
+
+        Args:
+            directory: Directory containing ``run.json`` and its artifacts.
+
+        Returns:
+            A handle to the manifest, point scores, and figures.
+
+        Raises:
+            ValueError: If the manifest is invalid or omits the score checksum.
+        """
         manifest = directory / "run.json"
         report = _read_report(manifest)
         scores = report.get("scores")
@@ -93,20 +65,54 @@ class RunArtifacts:
         return cls(manifest, point_scores, figures)
 
     @classmethod
-    def open_verified(cls, directory: Path) -> RunArtifacts:
+    def open_verified(cls, directory: Path) -> ReportArtifacts:
+        """Open a report bundle and verify every declared artifact.
+
+        Args:
+            directory: Directory containing ``run.json`` and its artifacts.
+
+        Returns:
+            A verified handle to the report bundle.
+
+        Raises:
+            ValueError: If the manifest or an artifact fails validation.
+        """
         artifacts = cls.open(directory)
         artifacts.verify()
         return artifacts
 
     def read_report(self) -> Mapping[str, object]:
+        """Read the persisted JSON report without verifying artifact contents.
+
+        Returns:
+            A read-only mapping containing the persisted report record.
+
+        Raises:
+            ValueError: If the manifest cannot be read or has an unsupported schema.
+        """
         return MappingProxyType(_read_report(self.manifest))
 
     def read_verified_report(self) -> Mapping[str, object]:
+        """Verify the bundle and read its persisted JSON report.
+
+        Returns:
+            A read-only mapping containing the persisted report record.
+
+        Raises:
+            ValueError: If the manifest or an artifact fails validation.
+        """
         self.verify()
         return self.read_report()
 
     def read_completed_run(self) -> CompletedRunSummary:
-        """Read linked Detectiv and optional MLflow identifiers from the manifest."""
+        """Read linked Detectiv and optional MLflow identifiers from the manifest.
+
+        Returns:
+            The run identity and known local and MLflow output locations.
+
+        Raises:
+            ValueError: If the manifest has no valid Detectiv run identity.
+        """
         report = self.read_report()
         run = report.get("run")
         if not isinstance(run, Mapping) or not isinstance(run.get("detectiv_id"), str):
@@ -125,6 +131,11 @@ class RunArtifacts:
         )
 
     def load_scores(self) -> Mapping[str, np.ndarray]:
+        """Load the stored score arrays by their stable archive keys.
+
+        Returns:
+            Read-only score arrays keyed by names such as ``score_0_0``.
+        """
         with np.load(self.point_scores, allow_pickle=False) as archive:
             scores = {
                 name: _readonly(np.asarray(archive[name])) for name in archive.files
@@ -132,10 +143,23 @@ class RunArtifacts:
         return MappingProxyType(scores)
 
     def load_verified_scores(self) -> Mapping[str, np.ndarray]:
+        """Verify the bundle before loading its score arrays.
+
+        Returns:
+            Read-only score arrays keyed by their stable archive keys.
+
+        Raises:
+            ValueError: If the manifest or an artifact fails validation.
+        """
         self.verify()
         return self.load_scores()
 
     def verify(self) -> None:
+        """Verify the checksum of every artifact declared by the manifest.
+
+        Raises:
+            ValueError: If checksums are invalid, missing, or do not match files.
+        """
         report = self.read_report()
         artifacts = report.get("artifacts")
         if not isinstance(artifacts, Mapping):
@@ -154,7 +178,16 @@ class RunArtifacts:
                 )
 
 
-class RunArtifactWriter:
+class ReconstructionReportWriter:
+    """Atomically persist a reconstruction report and its point scores.
+
+    Args:
+        directory: Destination directory for the complete report bundle.
+        provenance: Additional JSON-compatible bundle provenance.
+        visualize: Whether to render training and point-score figures.
+        overwrite: Whether to replace an existing non-empty destination.
+    """
+
     def __init__(
         self,
         directory: Path,
@@ -170,16 +203,27 @@ class RunArtifactWriter:
 
     def write(
         self,
-        result: RunArtifactResult,
+        report: ReconstructionReport,
         *,
-        metrics: Mapping[str, object] | None = None,
         completed_run: CompletedRunSummary | None = None,
-    ) -> RunArtifacts:
+    ) -> ReportArtifacts:
+        """Write one reconstruction report as a schema-versioned bundle.
+
+        Args:
+            report: Completed reconstruction report to persist.
+            completed_run: Optional execution identity linked in the manifest.
+
+        Returns:
+            Paths and accessors for the atomically published bundle.
+
+        Raises:
+            FileExistsError: If the destination is non-empty without overwrite.
+            ValueError: If report or provenance values cannot be persisted safely.
+        """
         _validate_json(self.provenance, "provenance")
-        _validate_json(result.reproducibility, "reproducibility")
-        _validate_json(result.resolved_inputs, "resolved_inputs")
-        if metrics is not None:
-            _validate_json(metrics, "metrics")
+        _validate_json(report.reproducibility, "reproducibility")
+        _validate_json(report.resolved_inputs, "resolved_inputs")
+        _validate_json(report.metrics, "metrics")
         self._prepare_destination()
         staging = Path(
             tempfile.mkdtemp(
@@ -188,15 +232,13 @@ class RunArtifactWriter:
         )
 
         try:
-            artifacts = self._write(
-                staging, result, metrics=metrics, completed_run=completed_run
-            )
+            artifacts = self._write(staging, report, completed_run=completed_run)
             self._publish(staging)
         except BaseException:
             shutil.rmtree(staging, ignore_errors=True)
             raise
 
-        return RunArtifacts(
+        return ReportArtifacts(
             self.directory / artifacts.manifest.name,
             self.directory / artifacts.point_scores.name,
             tuple(
@@ -207,33 +249,30 @@ class RunArtifactWriter:
     def _write(
         self,
         directory: Path,
-        result: RunArtifactResult,
+        report: ReconstructionReport,
         *,
-        metrics: Mapping[str, object] | None,
         completed_run: CompletedRunSummary | None,
-    ) -> RunArtifacts:
+    ) -> ReportArtifacts:
         scores_path = directory / "point_scores.npz"
         manifest_path = directory / "run.json"
-        arrays, score_keys = _score_arrays(result.point_scores)
+        arrays, score_keys = _score_arrays(report.point_scores)
         np.savez_compressed(scores_path, **arrays)  # type: ignore[arg-type]
-        figures = _write_figures(directory, result) if self.visualize else ()
+        figures = _write_figures(directory, report) if self.visualize else ()
         manifest: dict[str, object] = {
             "schema_version": _REPORT_SCHEMA_VERSION,
             "runtime": _runtime_provenance(),
             "provenance": _json_mapping(self.provenance),
-            **_json_mapping(result.record()),
+            **_json_mapping(report.record()),
             "scores": {"path": scores_path.name, "keys": score_keys},
             "artifacts": _artifact_manifest(directory, (scores_path, *figures)),
         }
-        if metrics is not None:
-            manifest["metrics"] = _json_mapping(metrics)
         if completed_run is not None:
             manifest["run"] = {
                 "detectiv_id": completed_run.run_id,
                 "mlflow_run_id": completed_run.mlflow_run_id,
             }
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-        return RunArtifacts(manifest_path, scores_path, figures)
+        return ReportArtifacts(manifest_path, scores_path, figures)
 
     def _prepare_destination(self) -> None:
         self.directory.parent.mkdir(parents=True, exist_ok=True)
@@ -400,12 +439,12 @@ def _readonly(values: np.ndarray) -> np.ndarray:
     return result
 
 
-def _write_figures(directory: Path, result: RunArtifactResult) -> tuple[Path, ...]:
+def _write_figures(directory: Path, report: ReconstructionReport) -> tuple[Path, ...]:
     pyplot = _load_pyplot()
     figures_directory = directory / "figures"
     figures_directory.mkdir(exist_ok=True)
-    paths = [_write_training_figure(pyplot, figures_directory, result)]
-    for plan_index, propagations in enumerate(result.point_scores.values()):
+    paths = [_write_training_figure(pyplot, figures_directory, report)]
+    for plan_index, propagations in enumerate(report.point_scores.values()):
         for propagation_index, scores in enumerate(propagations.values()):
             paths.append(
                 _write_score_figure(
@@ -419,12 +458,12 @@ def _write_figures(directory: Path, result: RunArtifactResult) -> tuple[Path, ..
 
 
 def _write_training_figure(
-    pyplot: Any, directory: Path, result: RunArtifactResult
+    pyplot: Any, directory: Path, report: ReconstructionReport
 ) -> Path:
     figure, axis = pyplot.subplots()
-    axis.plot(result.training_losses, label="training")
-    if result.validation_losses:
-        axis.plot(result.validation_losses, label="validation")
+    axis.plot(report.training_losses, label="training")
+    if report.validation_losses:
+        axis.plot(report.validation_losses, label="validation")
     axis.set(xlabel="Epoch", ylabel="Reconstruction loss")
     axis.legend()
     figure.tight_layout()

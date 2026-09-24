@@ -3,11 +3,9 @@ from typing import cast
 from torch import Tensor, nn
 from torch.nn import functional as functional
 
-from detectiv.models.autoencoders.base import (
-    ImageBottleneck,
-    ImageDecoder,
-    ImageEncoder,
-)
+from detectiv.models.autoencoders.bottlenecks.base import ImageBottleneck
+from detectiv.models.autoencoders.decoders.base import ImageDecoder
+from detectiv.models.autoencoders.encoders.base import ImageEncoder
 
 
 class Autoencoder(nn.Module):

@@ -12,9 +12,10 @@ from detectiv.callbacks.base import Callback
 from detectiv.images import ImageDataset
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.protocols import TrainingMode
-from detectiv.runs import JSONValue, ReproducibilitySettings
+from detectiv.reports import ReconstructionReport
+from detectiv.reproducibility import ReproducibilitySettings
+from detectiv.runs import JSONValue
 from detectiv.scenarios.base import BaseScenario
-from detectiv.scenarios.results import ReconstructionReport
 from detectiv.scoring import (
     ReconstructionScoringPlan,
     WindowEvidenceBatch,
@@ -119,9 +120,6 @@ class ReconstructionScenario(BaseScenario[ReconstructionReport]):
             point_scores=point_scores,
             training=training,
             point_labels=self.images.test.point_labels,
-            callbacks=MappingProxyType(
-                {callback.name: callback for callback in self.callbacks}
-            ),
             reproducibility=(
                 MappingProxyType({})
                 if self.reproducibility is None
@@ -166,8 +164,6 @@ class ReconstructionScenario(BaseScenario[ReconstructionReport]):
                     _scoring_plan_record(plan) for plan in self.scoring_plans
                 ],
                 "performance": {
-                    "data_wait_seconds": training.data_wait_seconds,
-                    "transfer_seconds": training.transfer_seconds,
                     "training_seconds": training_seconds,
                     "validation_seconds": training.validation_seconds,
                     "scoring_seconds": scoring_seconds,

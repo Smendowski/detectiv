@@ -121,20 +121,20 @@ detectiv/point_scores.npz
 
 ### Local reports
 
-`RunArtifactWriter` creates a versioned `run.json` report and compressed point
+`ReconstructionReportWriter` creates a versioned `run.json` report and compressed point
 scores. The report records runtime provenance, optional caller-supplied
 provenance, training summary, evaluation metrics, and SHA-256 checksums for all
 generated artifacts.
 
-Attach `RunArtifactCallback` to write the same bundle automatically when a
+Attach `ReportArtifactCallback` to write the same bundle automatically when a
 scenario completes:
 
 ```python
 from pathlib import Path
 
-from detectiv.callbacks import RunArtifactCallback
+from detectiv.callbacks import ReportArtifactCallback
 
-reporter = RunArtifactCallback(
+reporter = ReportArtifactCallback(
     Path("runs/nab-cnn"),
     provenance={"seed": 42},
     visualize=True,

@@ -1,6 +1,9 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from enum import StrEnum
 
 import torch
+from torch import nn
 
 
 class ComputeDevice(StrEnum):
@@ -10,6 +13,18 @@ class ComputeDevice(StrEnum):
     CPU = "cpu"
     CUDA = "cuda"
     MPS = "mps"
+
+
+@contextmanager
+def evaluating(model: nn.Module) -> Iterator[None]:
+    """Temporarily evaluate a model without losing mixed child-module modes."""
+    modes = tuple((module, module.training) for module in model.modules())
+    model.eval()
+    try:
+        yield
+    finally:
+        for module, training in modes:
+            module.training = training
 
 
 def resolve_device(device: ComputeDevice | str = ComputeDevice.AUTO) -> torch.device:

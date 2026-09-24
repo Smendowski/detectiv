@@ -7,7 +7,7 @@ from detectiv.images.io.readers import ImageFolderReader
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
 from detectiv.models.autoencoders.encoders import CNNEncoder
-from detectiv.runs import ReproducibilitySettings
+from detectiv.reproducibility import ReproducibilitySettings
 from detectiv.scoring import MeanSquaredWindowReconstructionError
 from detectiv.time_series import TemporalBoundary, TimeSeries
 from detectiv.time_series.windowing import WindowSpec

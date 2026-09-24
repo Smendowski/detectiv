@@ -20,7 +20,7 @@ from detectiv.models.autoencoders.transfer_learning import (
     OptimizerFactory,
     TransferLearningStrategy,
 )
-from detectiv.models.runtime import ComputeDevice, resolve_device
+from detectiv.models.runtime import ComputeDevice, evaluating, resolve_device
 from detectiv.runs import TrainingEpochEvent
 from detectiv.ts2i import DataLoaderSettings
 
@@ -112,8 +112,6 @@ class AutoencoderTrainer:
 
         losses: list[float] = []
         validation_losses: list[float] = []
-        data_wait_seconds = 0.0
-        transfer_seconds = 0.0
         validation_seconds = 0.0
         best_loss = float("inf")
         best_epoch: int | None = None
@@ -139,20 +137,11 @@ class AutoencoderTrainer:
 
             loss_sum = 0.0
             n_images = 0
-            batches = iter(loader)
-            while True:
-                waiting_started = perf_counter()
-                try:
-                    batch = next(batches)
-                except StopIteration:
-                    break
-                data_wait_seconds += perf_counter() - waiting_started
-                transfer_started = perf_counter()
+            for batch in loader:
                 batch = cast(Tensor, batch).to(
                     device,
                     non_blocking=self.data_loader.pin_memory and device.type == "cuda",
                 )
-                transfer_seconds += perf_counter() - transfer_started
                 optimizer.zero_grad(set_to_none=True)
                 reconstruction = model(batch)
                 reconstruction_loss = self.loss(reconstruction, batch)
@@ -178,14 +167,9 @@ class AutoencoderTrainer:
                     )
                 continue
 
-            (
-                validation_loss,
-                validation_wait,
-                validation_transfer,
-                validation_elapsed,
-            ) = self._loss(model, validation_dataset, device)
-            data_wait_seconds += validation_wait
-            transfer_seconds += validation_transfer
+            validation_loss, validation_elapsed = self._loss(
+                model, validation_dataset, device
+            )
             validation_seconds += validation_elapsed
             validation_losses.append(validation_loss)
             self._step_scheduler(scheduler, validation_loss)
@@ -222,8 +206,6 @@ class AutoencoderTrainer:
             best_epoch=best_epoch,
             best_validation_loss=None if best_epoch is None else best_loss,
             device=str(device),
-            data_wait_seconds=data_wait_seconds,
-            transfer_seconds=transfer_seconds,
             validation_seconds=validation_seconds,
         )
 
@@ -272,58 +254,36 @@ class AutoencoderTrainer:
         model: Autoencoder,
         images: TorchImageDataset,
         device: torch.device,
-    ) -> tuple[float, float, float, float]:
-        was_training = model.training
-        model.eval()
+    ) -> tuple[float, float]:
         loss_sum = 0.0
-        data_wait_seconds = 0.0
-        transfer_seconds = 0.0
         started = perf_counter()
 
-        with torch.no_grad():
-            batches = iter(
-                DataLoader(
-                    images,
-                    batch_size=self.batch_size,
-                    num_workers=self.data_loader.workers,
-                    prefetch_factor=self.data_loader.prefetch_factor,
-                    persistent_workers=self.data_loader.persistent_workers,
-                    pin_memory=self.data_loader.pin_memory and device.type == "cuda",
-                )
+        with evaluating(model), torch.no_grad():
+            loader = DataLoader(
+                images,
+                batch_size=self.batch_size,
+                num_workers=self.data_loader.workers,
+                prefetch_factor=self.data_loader.prefetch_factor,
+                persistent_workers=self.data_loader.persistent_workers,
+                pin_memory=self.data_loader.pin_memory and device.type == "cuda",
             )
-            while True:
-                waiting_started = perf_counter()
-                try:
-                    batch = next(batches)
-                except StopIteration:
-                    break
-                data_wait_seconds += perf_counter() - waiting_started
-                transfer_started = perf_counter()
+            for batch in loader:
                 batch = cast(Tensor, batch).to(
                     device,
                     non_blocking=self.data_loader.pin_memory and device.type == "cuda",
                 )
-                transfer_seconds += perf_counter() - transfer_started
                 loss_sum += float(self.loss(model(batch), batch)) * len(batch)
 
-        model.train(was_training)
-        return (
-            loss_sum / len(images),
-            data_wait_seconds,
-            transfer_seconds,
-            perf_counter() - started,
-        )
+        return loss_sum / len(images), perf_counter() - started
 
 
 @dataclass(frozen=True)
 class TrainingHistory:
-    """Immutable losses, timing, and best-validation metadata from training."""
+    """Immutable losses and best-validation metadata from training."""
 
     training_losses: tuple[float, ...]
     validation_losses: tuple[float, ...] = ()
     best_epoch: int | None = None
     best_validation_loss: float | None = None
     device: str | None = None
-    data_wait_seconds: float = 0.0
-    transfer_seconds: float = 0.0
     validation_seconds: float = 0.0

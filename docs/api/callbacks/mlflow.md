@@ -18,7 +18,7 @@ scenario = CustomScenario(callbacks=(MlflowCallback(),))
 result = scenario.run()
 ```
 
-For a reconstruction scenario, compose `MlflowCallback` and
-`detectiv.callbacks.ReconstructionMlflowCallback` in the scenario's callback
-tuple. The reconstruction callback receives the shared generic callback and can
-therefore publish reconstruction-only metrics and artifacts.
+For a reconstruction scenario, use
+`detectiv.callbacks.ReconstructionMlflowCallback` instead. It extends the
+generic callback with reconstruction metrics and artifacts while owning the same
+MLflow run lifecycle.

@@ -4,9 +4,9 @@ from collections.abc import Sequence
 from uuid import uuid4
 
 from detectiv.callbacks.base import Callback
+from detectiv.reproducibility import ReproducibilitySettings
 from detectiv.runs import (
     CompletedRunSummary,
-    ReproducibilitySettings,
     RunContext,
     RunIdentity,
     TrainingEpochEvent,
@@ -48,12 +48,11 @@ class BaseScenario[T](ABC):
                 self.reproducibility.apply()
             self._notify_started(started, context)
             result = self._run()
+            result = self._notify_finished(started, result)
         except BaseException as error:
             self._notify_failed(started, error)
             raise
-
         else:
-            result = self._notify_finished(started, result)
             self.completed_run = context.completed_run
             return result
         finally:

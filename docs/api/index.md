@@ -9,17 +9,19 @@ from detectiv.benchmarks.tsb_ad import TSBADAdapter, TSBADCsvLoader
 from detectiv.callbacks import (
     BaseCallback,
     MlflowCallback,
-    RunArtifactCallback,
+    ReportArtifactCallback,
 )
 from detectiv.images import ImageDataset, ImageShape, TorchImageDataset
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.protocols import RandomHoldout, SemiSupervisedTraining
-from detectiv.runs import ReproducibilitySettings, RunArtifacts, RunArtifactWriter
-from detectiv.scenarios import (
+from detectiv.reports import (
     ExperimentReport,
     ReconstructionReport,
-    ReconstructionScenario,
+    ReconstructionReportWriter,
+    ReportArtifacts,
 )
+from detectiv.reproducibility import ReproducibilitySettings, configure_reproducibility
+from detectiv.scenarios import ReconstructionScenario
 from detectiv.scoring import ReconstructionScoringPlan
 from detectiv.time_series import (
     TemporalBoundary,
