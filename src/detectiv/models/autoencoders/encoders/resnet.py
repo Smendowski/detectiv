@@ -3,10 +3,10 @@ from typing import cast
 import torch
 from torch import Tensor, nn
 
-from detectiv.models.autoencoders.encoders.base import ImageEncoder
+from detectiv.models.autoencoders.encoders.base import BaseEncoder
 
 
-class ResNet18Encoder(ImageEncoder):
+class ResNet18Encoder(BaseEncoder):
     """ResNet-18 feature encoder with optional pretrained frozen weights.
 
     Requires the optional ``vision`` dependency group.

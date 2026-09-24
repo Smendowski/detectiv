@@ -2,10 +2,10 @@ from typing import cast
 
 from torch import Tensor
 
-from detectiv.models.autoencoders.encoders.base import ImageEncoder
+from detectiv.models.autoencoders.encoders.base import BaseEncoder
 
 
-class PVTv2B1Encoder(ImageEncoder):
+class PVTv2B1Encoder(BaseEncoder):
     """PVTv2-B1 feature encoder with optional pretrained frozen weights.
 
     Requires the optional ``vision`` dependency group.

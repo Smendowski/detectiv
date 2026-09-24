@@ -3,8 +3,8 @@ from torch import Tensor
 
 from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.models.autoencoders import Autoencoder
-from detectiv.models.autoencoders.decoders import ImageDecoder
-from detectiv.models.autoencoders.encoders import ImageEncoder
+from detectiv.models.autoencoders.decoders import BaseDecoder
+from detectiv.models.autoencoders.encoders import BaseEncoder
 from detectiv.scoring.reconstruction import MeanSquaredWindowReconstructionError
 from detectiv.time_series.windowing import WindowReference
 
@@ -17,12 +17,12 @@ class ArrayImageSource(ImageSource):
         return np.ones((1, 2, 4))
 
 
-class IdentityEncoder(ImageEncoder):
+class IdentityEncoder(BaseEncoder):
     def forward(self, images: Tensor) -> Tensor:
         return images
 
 
-class ZeroDecoder(ImageDecoder):
+class ZeroDecoder(BaseDecoder):
     def forward(self, embeddings: Tensor) -> Tensor:
         return embeddings * 0
 

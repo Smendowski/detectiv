@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from torch import Tensor, nn
 
 
-class ImageEncoder(nn.Module, ABC):
+class BaseEncoder(nn.Module, ABC):
     """Encode a batch of channel-first images into latent embeddings."""
 
     @abstractmethod

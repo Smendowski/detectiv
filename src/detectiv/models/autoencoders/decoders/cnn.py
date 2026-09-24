@@ -3,11 +3,11 @@ from typing import cast
 
 from torch import Tensor, nn
 
-from detectiv.models.autoencoders.decoders.base import ImageDecoder
+from detectiv.models.autoencoders.decoders.base import BaseDecoder
 from detectiv.models.autoencoders.layers import make_activation, resolve_layer_values
 
 
-class CNNDecoder(ImageDecoder):
+class CNNDecoder(BaseDecoder):
     """Configurable transposed-convolution decoder for image embeddings."""
 
     def __init__(

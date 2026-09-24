@@ -3,11 +3,11 @@ from typing import cast
 
 from torch import Tensor, nn
 
-from detectiv.models.autoencoders.bottlenecks.base import ImageBottleneck
+from detectiv.models.autoencoders.bottlenecks.base import BaseBottleneck
 from detectiv.models.autoencoders.layers import make_activation
 
 
-class DenseSpatialBottleneck(ImageBottleneck):
+class DenseSpatialBottleneck(BaseBottleneck):
     """Project spatial embeddings through a dense latent representation.
 
     Set ``adaptive_pool=True`` to accept encoder outputs with varying spatial

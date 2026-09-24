@@ -3,11 +3,11 @@ from typing import cast
 
 from torch import Tensor, nn
 
-from detectiv.models.autoencoders.encoders.base import ImageEncoder
+from detectiv.models.autoencoders.encoders.base import BaseEncoder
 from detectiv.models.autoencoders.layers import make_activation, resolve_layer_values
 
 
-class CNNEncoder(ImageEncoder):
+class CNNEncoder(BaseEncoder):
     """Configurable convolutional encoder for channel-first images.
 
     Each hidden-channel entry creates one convolution, optional batch
