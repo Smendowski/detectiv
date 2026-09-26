@@ -3,10 +3,10 @@ from dataclasses import replace
 
 from detectiv.time_series import TimeSeries
 from detectiv.ts2i.projection.schemes import ProjectionScheme
-from detectiv.ts2i.projection.strategies.base import ProjectionStrategy
+from detectiv.ts2i.projection.strategies.base import BaseProjectionStrategy
 
 
-class FixedProjectionStrategy(ProjectionStrategy):
+class FixedProjectionStrategy(BaseProjectionStrategy):
     """Fit a configured projection scheme without changing its composition."""
 
     def __init__(self, scheme: ProjectionScheme) -> None:

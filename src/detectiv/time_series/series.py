@@ -105,6 +105,37 @@ class TimeSeries:
         """Return whether the series has exactly one feature."""
         return self.n_features == 1
 
+    def with_values(
+        self,
+        values: np.ndarray,
+        *,
+        feature_names: tuple[str, ...] | list[str] | None,
+    ) -> TimeSeries:
+        """Return transformed values while preserving labels and provenance.
+
+        Args:
+            values: Replacement time-by-feature values.
+            feature_names: Names describing the replacement features, or ``None``
+                when they are unnamed.
+
+        Returns:
+            A validated derived series.
+        """
+        normalized_values = np.asarray(values)
+        if (
+            normalized_values.ndim not in (1, 2)
+            or len(normalized_values) != self.n_timesteps
+        ):
+            raise ValueError("replacement values must preserve the number of timesteps")
+        return TimeSeries(
+            values,
+            labels=self.labels,
+            feature_names=feature_names,
+            sampling_rate=self.sampling_rate,
+            series_id=self.series_id,
+            metadata=self.metadata,
+        )
+
     def split(self, rule: TemporalBoundary | TemporalHoldout) -> TimeSeriesSplit:
         """Split the series into chronological train, validation, and test segments.
 

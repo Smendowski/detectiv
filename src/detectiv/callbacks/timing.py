@@ -38,7 +38,6 @@ class TimingCallback(BaseCallback[Any]):
             result: Successful scenario result; unused by this observer.
         """
         self._finish()
-        return None
 
     def on_run_failed(self, error: BaseException) -> None:
         """Stop the timer after failure.

@@ -31,11 +31,7 @@ class MinMaxScaling(TimeSeriesPreprocessor):
             raise RuntimeError("MinMaxScaling must be fitted before transforming data")
         if series.feature_names != self._feature_names:
             raise ValueError("series feature names do not match fitted data")
-        return TimeSeries(
+        return series.with_values(
             self._scaler.transform(series.values),
-            labels=series.labels,
             feature_names=series.feature_names,
-            sampling_rate=series.sampling_rate,
-            series_id=series.series_id,
-            metadata=series.metadata,
         )

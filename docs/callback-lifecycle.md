@@ -1,8 +1,7 @@
 # Callback Lifecycle
 
-Callbacks observe a `ReconstructionScenario` without changing its training or
-scoring configuration. The callback is supplied through the scenario's existing
-`callbacks` argument:
+Callbacks observe a scenario without changing its training or scoring
+configuration. They are supplied through the scenario's `callbacks` argument:
 
 ```python
 from detectiv.callbacks import ReportArtifactCallback, TimingCallback
@@ -40,7 +39,7 @@ scenario passes that enriched result to the next callback. Returning `None`
 preserves the current result. `scenario.run()` returns the final result from this
 ordered chain. It always calls `on_run_closed()` afterwards in reverse
 registration order for callbacks whose start hook completed, allowing
-resource-owning callbacks such as `MlflowCallback` to clean up reliably.
+resource-owning callbacks such as `MLflowCallback` to clean up reliably.
 
 If startup, training, scoring, propagation, an epoch hook, or a completion hook
 raises, only callbacks whose start hook already returned receive
@@ -71,19 +70,20 @@ for metadata and `visualize=True` when its optional visualization dependencies
 are available. Its writer rejects an existing non-empty destination unless
 `overwrite=True`.
 
-Use `MlflowCallback` to track a scenario in MLflow. Install its optional
-dependency first. The callback owns the MLflow run lifecycle. For reconstruction,
-use `ReconstructionMlflowCallback`, which extends the generic callback:
+Use `MLflowTracker` to configure MLflow, then connect it to a scenario with an
+MLflow callback. Install the optional dependency first:
 
 ```console
 uv sync --extra experiment
 ```
 
 ```python
-from detectiv.callbacks import ReconstructionMlflowCallback
+from detectiv.callbacks import MLflowCallback
 from detectiv.scenarios import ReconstructionScenario
+from detectiv.tracking import MLflowTracker
 
-tracking = ReconstructionMlflowCallback()
+tracker = MLflowTracker(experiment_name="reconstruction")
+tracking = MLflowCallback(tracker)
 scenario = ReconstructionScenario(
     images=images,
     model=model,
@@ -94,12 +94,34 @@ scenario = ReconstructionScenario(
 result = scenario.run()
 ```
 
-The inherited generic behavior records lifecycle tags; the reconstruction
-callback also records epoch metrics, reports, curves, and optional model
-artifacts. Configure generic metadata and metric providers directly on either
-callback. The [MLflow API](api/callbacks/mlflow.md) defines generic tracking and
-the [reconstruction tracking API](api/callbacks/tracking/reconstruction.md)
-defines reconstruction-specific behavior.
+`MLflowTracker` owns MLflow configuration and logging operations.
+`BaseMLflowCallback` adapts generic scenario lifecycle events, while
+`MLflowCallback` adds reconstruction epoch metrics, report metrics, and optional
+model publication.
+
+Compose callbacks in the order that data becomes available. Metrics enrich the
+report first, the artifact callback writes that report, and MLflow uploads the
+completed directory last:
+
+```python
+from pathlib import Path
+
+from detectiv.callbacks import MLflowCallback, MetricsCallback, ReportArtifactCallback
+from detectiv.tracking import MLflowTracker
+
+report_directory = Path("artifacts/reconstruction")
+callbacks = (
+    MetricsCallback(evaluator),
+    ReportArtifactCallback(report_directory, visualize=True),
+    MLflowCallback(
+        MLflowTracker(experiment_name="reconstruction"),
+        artifact_directories={report_directory: "detectiv"},
+    ),
+)
+```
+
+The [tracking API](api/tracking/mlflow.md) documents MLflow setup, and the
+[callback API](api/callbacks/mlflow.md) documents lifecycle adaptation.
 
 See the [base contract](api/callbacks/base.md),
 [artifact callback](api/callbacks/artifacts.md), and

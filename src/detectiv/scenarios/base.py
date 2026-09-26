@@ -1,10 +1,10 @@
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from contextlib import ExitStack
+from typing import Any
 from uuid import uuid4
 
 from detectiv.callbacks.base import BaseCallback
-from detectiv.models.autoencoders import TrainingEpochEvent
 from detectiv.reports import CompletedRunSummary, RunContext
 from detectiv.reproducibility import ReproducibilitySettings
 
@@ -48,17 +48,17 @@ class BaseScenario[T](ABC):
         except BaseException as error:
             self._notify_failed(started, error)
             raise
-        else:
-            self.completed_run = context.completed_run
-            return result
         finally:
             self._notify_closed(started)
+
+        self.completed_run = context.completed_run
+        return result
 
     @abstractmethod
     def _run(self) -> T:
         raise NotImplementedError
 
-    def _notify_epoch_finished(self, event: TrainingEpochEvent) -> None:
+    def _notify_epoch_finished(self, event: Any) -> None:
         for callback in self.callbacks:
             callback.on_epoch_finished(event)
 
@@ -93,14 +93,6 @@ class BaseScenario[T](ABC):
 
     @staticmethod
     def _notify_closed(callbacks: Sequence[BaseCallback[T]]) -> None:
-        original_error = sys.exception()
-        for callback in reversed(callbacks):
-            try:
-                callback.on_run_closed()
-            except Exception as cleanup_error:
-                if original_error is None:
-                    raise
-                original_error.add_note(
-                    f"Callback {callback.name!r} failed while closing the run: "
-                    f"{cleanup_error!r}"
-                )
+        with ExitStack() as stack:
+            for callback in callbacks:
+                stack.callback(callback.on_run_closed)

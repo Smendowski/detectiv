@@ -8,7 +8,7 @@ implementation module.
 from detectiv.benchmarks.tsb_ad import TSBADAdapter, load_tsb_ad_csv
 from detectiv.callbacks import (
     BaseCallback,
-    MlflowCallback,
+    MLflowCallback,
     ReportArtifactCallback,
 )
 from detectiv.images import ImageDataset, ImageShape, TorchImageDataset
@@ -35,6 +35,7 @@ from detectiv.time_series.windowing import (
     WindowProjection,
     WindowSpec,
 )
+from detectiv.tracking import MLflowTracker
 from detectiv.ts2i import ProjectedImageInspection, ProjectedImageStage
 from detectiv.ts2i.projection import FixedProjectionStrategy, ProjectionScheme
 ```

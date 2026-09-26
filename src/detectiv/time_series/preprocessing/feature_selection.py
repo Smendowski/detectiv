@@ -54,11 +54,7 @@ class ConstantFeatureRemoval(TimeSeriesPreprocessor):
                 for name, keep in zip(series.feature_names, self._mask, strict=True)
                 if keep
             )
-        return TimeSeries(
+        return series.with_values(
             series.values[:, self._mask],
-            labels=series.labels,
             feature_names=feature_names,
-            sampling_rate=series.sampling_rate,
-            series_id=series.series_id,
-            metadata=series.metadata,
         )

@@ -5,7 +5,9 @@
 `replicate` after configuring exactly one transformation to produce repeated
 channels for a model that expects a fixed channel count.
 
-`ProjectionStrategy.fit` receives training data and returns the fitted scheme.
+`BaseProjectionStrategy.fit` receives training data and returns a fitted
+`BaseProjectionScheme`. A scheme may render every window with one fixed
+composition or select compatible projections dynamically per window.
 `FixedProjectionStrategy` is suitable when every part of the scheme is already
 configured or has no fit state.
 

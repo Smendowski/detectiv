@@ -270,7 +270,7 @@ class Windower:
             )
             starts = np.empty(0, dtype=np.intp)
 
-        tail_start = 0 if not n_complete else int(starts[-1]) + self.length
+        tail_start = n_complete * self.stride
         if self.spec.tail is TailPolicy.DROP or tail_start >= series.n_timesteps:
             return WindowBatch(values, starts, series.n_timesteps)
 

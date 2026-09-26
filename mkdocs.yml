@@ -76,7 +76,8 @@ nav:
           - Artifacts: api/callbacks/artifacts.md
           - Timing: api/callbacks/timing.md
           - MLflow: api/callbacks/mlflow.md
-          - Reconstruction MLflow: api/callbacks/tracking/reconstruction.md
+      - Tracking:
+          - MLflow: api/tracking/mlflow.md
       - Losses:
           - Reconstruction: api/losses/reconstruction.md
       - Models:

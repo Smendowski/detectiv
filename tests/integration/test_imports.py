@@ -8,10 +8,12 @@ import pytest
 def test_public_scenario_and_callback_namespaces_import_together() -> None:
     import detectiv.callbacks
     import detectiv.models
+    import detectiv.models.autoencoders
     import detectiv.protocols
     import detectiv.reports
     import detectiv.reproducibility
     import detectiv.scenarios
+    import detectiv.tracking
 
     assert detectiv.callbacks.BaseCallback.__name__ == "BaseCallback"
     assert detectiv.models.Autoencoder.__name__ == "Autoencoder"
@@ -33,6 +35,7 @@ def test_public_scenario_and_callback_namespaces_import_together() -> None:
     assert (
         detectiv.scenarios.ReconstructionScenario.__name__ == "ReconstructionScenario"
     )
+    assert detectiv.tracking.MLflowTracker.__name__ == "MLflowTracker"
 
 
 @pytest.mark.parametrize(
@@ -46,6 +49,8 @@ def test_public_scenario_and_callback_namespaces_import_together() -> None:
         "detectiv.runs.identity",
         "detectiv.runs.metadata",
         "detectiv.runs.reproducibility",
+        "detectiv.callbacks.tracking.mlflow",
+        "detectiv.callbacks.tracking.reconstruction",
         "detectiv.scenarios.artifacts",
         "detectiv.scenarios.results",
         "detectiv.ts2i.projection.strategies.configured",
@@ -115,13 +120,15 @@ def test_experiment_domain_dependencies_are_one_directional() -> None:
             "protocols",
             "reports",
             "scenarios",
+            "tracking",
         )
     }
 
     assert dependencies["protocols"] == set()
     assert dependencies["models"] == set()
     assert dependencies["reports"] == set()
-    assert dependencies["callbacks"] <= {"models", "reports"}
+    assert dependencies["tracking"] == set()
+    assert dependencies["callbacks"] <= {"models", "reports", "tracking"}
     assert dependencies["scenarios"] <= {
         "callbacks",
         "models",
@@ -132,26 +139,18 @@ def test_experiment_domain_dependencies_are_one_directional() -> None:
 
 
 def test_generic_mlflow_tracker_has_no_concrete_scenario_dependencies() -> None:
-    source = (
-        Path(__file__).parents[2]
-        / "src"
-        / "detectiv"
-        / "callbacks"
-        / "tracking"
-        / "mlflow.py"
-    ).read_text(encoding="utf-8")
+    path = Path(__file__).parents[2] / "src" / "detectiv" / "tracking" / "mlflow.py"
+    source = path.read_text(encoding="utf-8")
 
     forbidden = (
         "ReconstructionScenario",
         "ReconstructionReport",
         "TrainingEpochEvent",
-        "torch",
-        "numpy",
-        "matplotlib",
         "ReconstructionReportWriter",
         "model_type",
     )
     assert not any(name in source for name in forbidden)
+    assert not _all_imports(path) & {"torch", "numpy", "matplotlib"}
 
 
 def _domain_dependencies(directory: Path) -> set[str]:
@@ -208,7 +207,8 @@ def _experiment_domains(module: str) -> set[str]:
     domain = module.removeprefix(prefix).split(".", maxsplit=1)[0]
     return (
         {domain}
-        if domain in {"callbacks", "models", "protocols", "reports", "scenarios"}
+        if domain
+        in {"callbacks", "models", "protocols", "reports", "scenarios", "tracking"}
         else set()
     )
 

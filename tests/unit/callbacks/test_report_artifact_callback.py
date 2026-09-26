@@ -34,17 +34,10 @@ class _Scenario(BaseScenario[ReconstructionReport]):
 
 def test_artifact_callback_writes_the_completed_run(tmp_path: Path) -> None:
     callback = ReportArtifactCallback(
-        tmp_path,
+        str(tmp_path),
         provenance={"seed": 42},
     )
-    result = ReconstructionReport(
-        window_scores={},
-        point_scores={"window": {"mean": np.array([1.0])}},
-        training=TrainingHistory((0.5,)),
-    )
-
-    callback.on_run_started()
-    callback.on_run_finished(result)
+    _Scenario((callback,)).run()
 
     assert callback.artifacts is not None
     assert callback.artifacts.manifest.is_file()
@@ -73,6 +66,7 @@ def test_artifact_callback_uses_run_id_default_and_links_its_manifest(
     manifest_run = callback.artifacts.read_completed_run()
     assert manifest_run.run_id == "detectiv-id"
     assert manifest_run.mlflow_run_id == "native-run"
+    assert manifest_run.mlflow_location == "mlruns:/native-run"
     assert context.completed_run.artifact_location == callback.artifacts.manifest.parent
 
 

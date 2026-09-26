@@ -133,15 +133,26 @@ def test_edge_padding_preserves_the_original_window_extent() -> None:
         windows.starts[1] = 0
 
 
-def test_padded_tail_starts_after_the_last_complete_window() -> None:
+def test_padded_tail_starts_at_the_next_stride_position() -> None:
     windows = Windower(length=4, stride=6, tail=TailPolicy.ZERO_PAD).transform(
         TimeSeries(np.arange(5))
     )
 
-    assert windows.starts.tolist() == [0, 4]
+    assert windows.starts.tolist() == [0]
     assert windows.valid_lengths is not None
-    assert windows.valid_lengths.tolist() == [4, 1]
-    assert windows.point_coverage().tolist() == [1, 1, 1, 1, 1]
+    assert windows.valid_lengths.tolist() == [4]
+    assert windows.point_coverage().tolist() == [1, 1, 1, 1, 0]
+
+
+def test_padded_overlapping_tail_starts_at_the_next_stride_position() -> None:
+    windows = Windower(length=4, stride=2, tail=TailPolicy.ZERO_PAD).transform(
+        TimeSeries(np.arange(7))
+    )
+
+    assert windows.starts.tolist() == [0, 2, 4]
+    assert windows.valid_lengths is not None
+    assert windows.valid_lengths.tolist() == [4, 4, 3]
+    assert windows.values[-1, :, 0].tolist() == [4.0, 5.0, 6.0, 0.0]
 
 
 def test_window_batch_does_not_freeze_caller_owned_values() -> None:

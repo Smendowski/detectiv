@@ -19,7 +19,7 @@ from detectiv.ts2i.materialization import (
     MaterializedImageSplit,
     materialize,
 )
-from detectiv.ts2i.projection import ProjectionScheme, ProjectionStrategy
+from detectiv.ts2i.projection import BaseProjectionScheme, BaseProjectionStrategy
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ class ProjectedImageStage:
     """
 
     source: WindowedTimeSeriesSplit
-    projection: ProjectionStrategy
+    projection: BaseProjectionStrategy
 
     def build(self, size: ImageSize, *, seed: int = 0) -> TemporalSplit[ImageDataset]:
         """Fit the pipeline and return lazy image datasets for every split.
@@ -151,7 +151,7 @@ class ProjectedImageStage:
     def _images(
         series: TimeSeries,
         window: WindowSpec,
-        projection: ProjectionScheme,
+        projection: BaseProjectionScheme,
         size: ImageSize,
         seed: int,
         split: SplitPart,

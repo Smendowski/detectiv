@@ -17,8 +17,10 @@ from detectiv.scoring import (
     MeanPointScoreAggregator,
     MeanSquaredWindowReconstructionError,
     PointScoringPlan,
+    ReconstructionScorer,
     ReconstructionScoringPlan,
     UniformPointAssignment,
+    WindowScoreBatch,
 )
 from detectiv.time_series import TemporalSplit
 from detectiv.time_series.windowing import WindowReference
@@ -33,6 +35,19 @@ class ArrayImageSource(ImageSource):
 
     def __getitem__(self, index: int) -> np.ndarray:
         return self.values[index]
+
+
+class MisalignedScorer(ReconstructionScorer):
+    @property
+    def name(self) -> str:
+        return "misaligned"
+
+    def score(self, model: Autoencoder, images: ImageDataset) -> WindowScoreBatch:
+        assert images.window_labels is None
+        assert images.point_labels is None
+        return WindowScoreBatch(
+            np.zeros(len(images)), tuple(reversed(images.window_references))
+        )
 
 
 class FailingFinishedCallback(BaseCallback[ReconstructionReport]):
@@ -403,6 +418,23 @@ def test_reconstruction_scenario_rejects_an_empty_test_dataset() -> None:
         scenario.run()
 
 
+def test_reconstruction_scenario_requires_aligned_score_references() -> None:
+    references = (
+        WindowReference("series", 0, 4, 4),
+        WindowReference("series", 2, 6, 4),
+    )
+    images = _images(
+        values=[np.zeros((1, 4, 4)), np.ones((1, 4, 4))],
+        references=references,
+        labels=np.array([False, True]),
+        point_labels=np.array([0, 0, 1, 1, 0, 0]),
+        series_length=6,
+    )
+
+    with pytest.raises(ValueError, match="preserve test window references"):
+        _scenario(images, images, scorer=MisalignedScorer()).run()
+
+
 def _images(
     *,
     values: list[np.ndarray],
@@ -429,6 +461,7 @@ def _scenario(
     *,
     callbacks: tuple[BaseCallback[ReconstructionReport], ...] = (),
     reproducibility: ReproducibilitySettings | None = None,
+    scorer: ReconstructionScorer | None = None,
 ) -> ReconstructionScenario:
     return ReconstructionScenario(
         images=TemporalSplit(train=train, test=test),
@@ -439,7 +472,7 @@ def _scenario(
         training_mode=SemiSupervisedTraining(),
         scoring_plans=(
             ReconstructionScoringPlan(
-                MeanSquaredWindowReconstructionError(),
+                scorer or MeanSquaredWindowReconstructionError(),
                 (
                     PointScoringPlan(
                         UniformPointAssignment(), MeanPointScoreAggregator()

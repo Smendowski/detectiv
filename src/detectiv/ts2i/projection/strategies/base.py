@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING
 
 from detectiv.time_series import TimeSeries
 from detectiv.time_series.windowing import WindowedTimeSeriesSplit
-from detectiv.ts2i.projection.schemes import ProjectionScheme
+from detectiv.ts2i.projection.schemes import BaseProjectionScheme
 
 if TYPE_CHECKING:
     from detectiv.ts2i.preparation import ProjectedImageStage
 
 
-class ProjectionStrategy(ABC):
+class BaseProjectionStrategy(ABC):
     """Fit training-dependent state and provide a usable projection scheme."""
 
     def project(self, source: WindowedTimeSeriesSplit) -> ProjectedImageStage:
@@ -28,7 +28,7 @@ class ProjectionStrategy(ABC):
         return ProjectedImageStage(source=source, projection=self)
 
     @abstractmethod
-    def fit(self, train: TimeSeries) -> ProjectionScheme:
+    def fit(self, train: TimeSeries) -> BaseProjectionScheme:
         """Fit on the training split and return its projection scheme.
 
         Args:

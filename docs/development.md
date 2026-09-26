@@ -35,15 +35,15 @@ uv sync --extra experiment
 export MLFLOW_TRACKING_URI=http://127.0.0.1:5000
 ```
 
-Keep MLflow at the scenario boundary. `MlflowCallback` owns the run lifecycle
-and publishes generic configuration, parameters, final metrics, and existing
-artifact directories. Add `ReconstructionMlflowCallback` when reconstruction
-training metrics, curves, reports, or model publication are useful:
+Keep MLflow mechanics under `detectiv.tracking`. `MLflowTracker` owns the native
+run and logging operations, while `BaseMLflowCallback` adapts generic scenario
+lifecycle events. `MLflowCallback` adds reconstruction training metrics, report
+metrics, and optional model publication. Use `ReportArtifactCallback` for report
+bundles and plots.
 
-See the [MLflow callback API](api/callbacks/mlflow.md) and
-[reconstruction tracking API](api/callbacks/tracking/reconstruction.md) for the
-public configuration contracts. Usage samples will live under `samples/` once
-they are prepared.
+See the [MLflow tracking API](api/tracking/mlflow.md) and
+[MLflow callback API](api/callbacks/mlflow.md) for the public configuration
+contracts. Usage samples will live under `samples/` once they are prepared.
 
 ## Reserved Namespaces
 

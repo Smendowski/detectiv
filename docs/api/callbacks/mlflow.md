@@ -1,24 +1,17 @@
-# Callback MLflow API
+# MLflow Callbacks
 
-::: detectiv.callbacks.tracking.mlflow
+## Lifecycle Adapter
 
-`MlflowCallback` is result-independent. It publishes
-common setup metadata, a Detectiv run ID, lifecycle tags, caller metrics, and
-configured artifact directories. MLflow is loaded only when the scenario starts.
+::: detectiv.callbacks.BaseMLflowCallback
 
-Framework-owned `detectiv.*` tags take precedence over user tags for the
-reserved run identity, lifecycle, scenario type, lineage, and dataset manifest
-fields. Lifecycle values are `started`, `succeeded`, and `failed`; failures also
-record `detectiv.error_type`.
+`BaseMLflowCallback` connects any scenario result type to an
+`MLflowTracker`. It records Detectiv run identity and status, and can publish
+caller-provided final metrics and existing artifact directories.
 
-Use generic tracking with any scenario result type:
+## Reconstruction Callback
 
-```python
-scenario = CustomScenario(callbacks=(MlflowCallback(),))
-result = scenario.run()
-```
+::: detectiv.callbacks.MLflowCallback
 
-For a reconstruction scenario, use
-`detectiv.callbacks.ReconstructionMlflowCallback` instead. It extends the
-generic callback with reconstruction metrics and artifacts while owning the same
-MLflow run lifecycle.
+`MLflowCallback` extends the lifecycle adapter with reconstruction epoch
+metrics, training summary tags, report metrics, and optional model publication.
+Report bundles and plots remain the responsibility of `ReportArtifactCallback`.

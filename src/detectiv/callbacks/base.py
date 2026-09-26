@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from detectiv.models.autoencoders import TrainingEpochEvent
     from detectiv.reports import RunContext
 
 
@@ -27,6 +26,16 @@ class BaseCallback[T]:
         """
         raise NotImplementedError
 
+    def on_run_context(self, context: RunContext) -> None:
+        """Receive the shared identity and output-registration context.
+
+        This optional hook runs before ``on_run_started()``.
+
+        Args:
+            context: Run identity and output-registration context.
+        """
+        pass
+
     def on_run_started(self) -> None:
         """Initialize state after reproducibility settings are applied.
 
@@ -36,23 +45,11 @@ class BaseCallback[T]:
         """
         pass
 
-    def on_run_context(self, context: RunContext) -> None:
-        """Receive the shared identity and output-registration context.
-
-        This optional hook runs before ``on_run_started()``. Existing callbacks
-        that implement only the original lifecycle hooks remain compatible.
-
-        Args:
-            context: Run identity and output-registration context.
-        """
-        pass
-
-    def on_epoch_finished(self, event: TrainingEpochEvent) -> None:
+    def on_epoch_finished(self, event: Any) -> None:
         """Handle one completed training epoch in registration order.
 
         Args:
-            event: Losses, learning rates, epoch index, and elapsed time for
-                the completed epoch.
+            event: Scenario-specific details for the completed epoch.
 
         Raises:
             BaseException: Propagated by the scenario, which then notifies each

@@ -7,9 +7,9 @@ from detectiv.ts2i.channelization import (
     HighestVariabilityFeatureChannelization,
 )
 from detectiv.ts2i.projection import (
+    BaseProjectionStrategy,
     FixedProjectionStrategy,
     ProjectionScheme,
-    ProjectionStrategy,
 )
 from detectiv.ts2i.transformations import Spiral
 
@@ -29,7 +29,7 @@ def test_fitted_projection_scheme_isolated_from_later_fits() -> None:
         ).channels(Spiral())
     )
 
-    assert isinstance(strategy, ProjectionStrategy)
+    assert isinstance(strategy, BaseProjectionStrategy)
 
     first = strategy.fit(first_train)
     size = ImageSize(height=4, width=4)

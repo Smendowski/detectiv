@@ -67,6 +67,33 @@ def test_unlabeled_series_is_supported() -> None:
     assert series.n_features == 2
 
 
+def test_series_derivation_preserves_labels_and_provenance() -> None:
+    series = TimeSeries(
+        np.ones((2, 2)),
+        labels=np.array([0, 1]),
+        feature_names=["first", "second"],
+        sampling_rate=2.0,
+        series_id="source",
+        metadata={"origin": "test"},
+    )
+
+    derived = series.with_values(np.array([[3.0], [4.0]]), feature_names=["selected"])
+
+    assert derived.feature_names == ("selected",)
+    assert derived.labels is not None
+    assert derived.labels.tolist() == [False, True]
+    assert derived.sampling_rate == 2.0
+    assert derived.series_id == "source"
+    assert derived.metadata == {"origin": "test"}
+
+
+def test_series_derivation_preserves_the_timeline() -> None:
+    series = TimeSeries(np.ones((2, 1)))
+
+    with pytest.raises(ValueError, match="number of timesteps"):
+        series.with_values(np.ones((3, 1)), feature_names=None)
+
+
 def test_series_can_be_split_in_temporal_order() -> None:
     series = TimeSeries(
         np.arange(12),

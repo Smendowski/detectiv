@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -9,8 +10,29 @@ from detectiv.ts2i.channelization import Channelization
 from detectiv.ts2i.transformations import TransformationInput, TS2ITransformation
 
 
+class BaseProjectionScheme(ABC):
+    """Render windows with a fixed output channel count."""
+
+    @property
+    @abstractmethod
+    def n_channels(self) -> int:
+        """Return the number of rendered output channels."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def render(
+        self,
+        window: np.ndarray,
+        size: ImageSize,
+        *,
+        rng: np.random.Generator | None = None,
+    ) -> np.ndarray:
+        """Render one time-major window as a channel-first image."""
+        raise NotImplementedError
+
+
 @dataclass(frozen=True)
-class ProjectionScheme:
+class ProjectionScheme(BaseProjectionScheme):
     """Pair a channelization with transformations that render image channels.
 
     Args:

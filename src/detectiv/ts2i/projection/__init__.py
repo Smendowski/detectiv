@@ -1,11 +1,12 @@
-from detectiv.ts2i.projection.schemes import ProjectionScheme
+from detectiv.ts2i.projection.schemes import BaseProjectionScheme, ProjectionScheme
 from detectiv.ts2i.projection.strategies import (
+    BaseProjectionStrategy,
     FixedProjectionStrategy,
-    ProjectionStrategy,
 )
 
 __all__ = [
+    "BaseProjectionScheme",
+    "BaseProjectionStrategy",
     "FixedProjectionStrategy",
     "ProjectionScheme",
-    "ProjectionStrategy",
 ]

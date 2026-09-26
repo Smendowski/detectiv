@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
 from types import MappingProxyType
@@ -92,6 +94,18 @@ class ImageDataset:
                 f"{image.shape}; expected {self.image_shape.shape}"
             )
         return image
+
+    def without_labels(self) -> ImageDataset:
+        """Return the same images and references without true labels."""
+        return ImageDataset(
+            self.dataset_id,
+            image_shape=self.image_shape,
+            window_references=self.window_references,
+            source=self.source,
+            series_id=self.series_id,
+            series_length=self.series_length,
+            metadata=self.metadata,
+        )
 
 
 def _validate_point_labels(

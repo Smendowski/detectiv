@@ -25,27 +25,17 @@ class ReportArtifactCallback(BaseCallback[ReconstructionReport]):
 
     def __init__(
         self,
-        directory: Path | None = None,
+        directory: Path | str | None = None,
         *,
         provenance: Mapping[str, object] | None = None,
         visualize: bool = False,
         overwrite: bool = False,
     ) -> None:
         """Configure the destination report writer."""
-        self.directory = directory
+        self.directory = None if directory is None else Path(directory)
         self.provenance = provenance
         self.visualize = visualize
         self.overwrite = overwrite
-        self.writer = (
-            None
-            if directory is None
-            else ReconstructionReportWriter(
-                directory,
-                provenance=provenance,
-                visualize=visualize,
-                overwrite=overwrite,
-            )
-        )
         self.artifacts: ReportArtifacts | None = None
         self._context: RunContext | None = None
 
@@ -63,18 +53,12 @@ class ReportArtifactCallback(BaseCallback[ReconstructionReport]):
         self.artifacts = None
 
     def on_run_context(self, context: RunContext) -> None:
-        """Prepare the configured or run-ID-derived artifact destination.
+        """Retain the context used to derive and register artifact locations.
 
         Args:
             context: Shared run identity and output-registration context.
         """
         self._context = context
-        self.writer = ReconstructionReportWriter(
-            self.directory or Path("artifacts") / context.run_id,
-            provenance=self.provenance,
-            visualize=self.visualize,
-            overwrite=self.overwrite,
-        )
 
     def on_run_finished(self, result: ReconstructionReport) -> None:
         """Write `result` and store its completed artifact bundle.
@@ -87,14 +71,20 @@ class ReportArtifactCallback(BaseCallback[ReconstructionReport]):
         Raises:
             RuntimeError: If the callback did not receive a run context.
         """
-        if self.writer is None:
+        if self._context is None:
             raise RuntimeError("artifact callback did not receive a run context")
-        self.artifacts = self.writer.write(
-            result,
-            completed_run=(
-                None if self._context is None else self._context.completed_run
-            ),
+        writer = ReconstructionReportWriter(
+            self.directory or Path("artifacts") / self._context.run_id,
+            provenance=self.provenance,
+            visualize=self.visualize,
+            overwrite=self.overwrite,
         )
-        if self._context is not None:
-            self._context.register_local_artifacts(self.artifacts.manifest.parent)
-        return None
+        self.artifacts = writer.write(
+            result,
+            completed_run=self._context.completed_run,
+        )
+        self._context.register_local_artifacts(self.artifacts.manifest.parent)
+
+    def on_run_closed(self) -> None:
+        """Release the per-run context while preserving published artifacts."""
+        self._context = None

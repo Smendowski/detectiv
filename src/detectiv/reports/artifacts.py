@@ -120,10 +120,14 @@ class ReportArtifacts:
         mlflow_run_id = run.get("mlflow_run_id")
         if mlflow_run_id is not None and not isinstance(mlflow_run_id, str):
             raise ValueError("run report defines an invalid MLflow run ID")
+        mlflow_location = run.get("mlflow_location")
+        if mlflow_location is not None and not isinstance(mlflow_location, str):
+            raise ValueError("run report defines an invalid MLflow location")
         return CompletedRunSummary(
             run_id=run["detectiv_id"],
             artifact_location=self.manifest.parent,
             mlflow_run_id=mlflow_run_id,
+            mlflow_location=mlflow_location,
         )
 
     def load_scores(self) -> Mapping[str, np.ndarray]:
@@ -266,6 +270,11 @@ class ReconstructionReportWriter:
             manifest["run"] = {
                 "detectiv_id": completed_run.run_id,
                 "mlflow_run_id": completed_run.mlflow_run_id,
+                "mlflow_location": (
+                    None
+                    if completed_run.mlflow_location is None
+                    else str(completed_run.mlflow_location)
+                ),
             }
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         return ReportArtifacts(manifest_path, scores_path, figures)
@@ -378,8 +387,8 @@ def _runtime_provenance() -> dict[str, str]:
         "python": platform.python_version(),
         "platform": platform.platform(),
         "executable": sys.executable,
-        "source_revision": _git("rev-parse", "HEAD") or "unknown",
-        "source_dirty": str(bool(_git("status", "--porcelain"))),
+        "source_revision": _git(root, "rev-parse", "HEAD") or "unknown",
+        "source_dirty": str(bool(_git(root, "status", "--porcelain"))),
         "dependency_lock_sha256": (
             _sha256(lockfile) if lockfile.is_file() else "unknown"
         ),
@@ -395,13 +404,14 @@ def _sha256(path: Path) -> str:
         return hashlib.file_digest(file, "sha256").hexdigest()
 
 
-def _git(*arguments: str) -> str | None:
+def _git(root: Path, *arguments: str) -> str | None:
     try:
         result = subprocess.run(
             ["git", *arguments],
             check=False,
             capture_output=True,
             text=True,
+            cwd=root,
         )
     except OSError:
         return None

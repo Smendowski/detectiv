@@ -17,7 +17,7 @@ class RecordingCallback(BaseCallback[str]):
         *,
         start_error: Exception | None = None,
         finish_error: Exception | None = None,
-        close_error: Exception | None = None,
+        close_error: BaseException | None = None,
     ) -> None:
         self._name = name
         self.events = events
@@ -251,10 +251,10 @@ def test_started_callback_failure_notifies_only_previously_started_callbacks() -
     ]
 
 
-def test_base_scenario_preserves_original_error_when_cleanup_fails() -> None:
+def test_cleanup_error_propagates() -> None:
     events: list[str] = []
 
-    with pytest.raises(RuntimeError, match="failed") as raised:
+    with pytest.raises(RuntimeError, match="close"):
         ExampleScenario(
             callbacks=(
                 RecordingCallback("first", events, close_error=RuntimeError("close")),
@@ -263,4 +263,35 @@ def test_base_scenario_preserves_original_error_when_cleanup_fails() -> None:
         ).run()
 
     assert events == ["first:started", "first:failed:RuntimeError", "first:closed"]
-    assert "failed while closing" in "\n".join(raised.value.__notes__)
+
+
+def test_base_scenario_closes_every_callback_when_cleanup_fails() -> None:
+    events: list[str] = []
+    scenario = ExampleScenario(
+        callbacks=(
+            RecordingCallback("first", events),
+            RecordingCallback("failing", events, close_error=RuntimeError("close")),
+        )
+    )
+
+    with pytest.raises(RuntimeError, match="close"):
+        scenario.run()
+
+    assert events[-2:] == ["failing:closed", "first:closed"]
+    assert scenario.completed_run is None
+
+
+def test_base_scenario_closes_every_callback_when_cleanup_is_interrupted() -> None:
+    events: list[str] = []
+    scenario = ExampleScenario(
+        callbacks=(
+            RecordingCallback("first", events),
+            RecordingCallback("failing", events, close_error=KeyboardInterrupt()),
+        )
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        scenario.run()
+
+    assert events[-2:] == ["failing:closed", "first:closed"]
+    assert scenario.completed_run is None

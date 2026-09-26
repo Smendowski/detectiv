@@ -11,7 +11,7 @@ from detectiv.time_series.windowing import (
     WindowReference,
     WindowSpec,
 )
-from detectiv.ts2i.projection import ProjectionScheme
+from detectiv.ts2i.projection import BaseProjectionScheme
 
 
 class ProjectedWindowImageSource(ImageSource):
@@ -22,7 +22,7 @@ class ProjectedWindowImageSource(ImageSource):
         series: TimeSeries,
         *,
         window: WindowSpec,
-        projection: ProjectionScheme,
+        projection: BaseProjectionScheme,
         size: ImageSize,
         seed: int,
         split: str,

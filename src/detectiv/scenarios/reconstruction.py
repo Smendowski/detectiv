@@ -99,8 +99,9 @@ class ReconstructionScenario(BaseScenario[ReconstructionReport]):
         )
         training_seconds = perf_counter() - training_started
         scoring_started = perf_counter()
+        scoring_images = self.images.test.without_labels()
         window_scores = {
-            plan.name: plan.scorer.score(self.model, self.images.test)
+            plan.name: plan.scorer.score(self.model, scoring_images)
             for plan in self.scoring_plans
         }
         self._validate_scores(window_scores)
@@ -206,11 +207,9 @@ class ReconstructionScenario(BaseScenario[ReconstructionReport]):
 
     def _validate_scores(self, scores: Mapping[str, WindowEvidenceBatch]) -> None:
         for plan, values in scores.items():
-            scored_series = {reference.series_id for reference in values.references}
-            if scored_series != {self.images.test.series_id}:
+            if values.references != self.images.test.window_references:
                 raise ValueError(
-                    f"scoring plan {plan!r} must score only test series "
-                    f"{self.images.test.series_id!r}"
+                    f"scoring plan {plan!r} must preserve test window references"
                 )
 
 
