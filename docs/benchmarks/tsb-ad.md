@@ -12,14 +12,13 @@ benchmark metrics. It loads TSB-AD CSV datasets directly from the local
 
 ## What Detectiv Provides
 
-The integration separates three concerns:
+The integration has three small entry points:
 
-1. Each TSB-AD CSV becomes one independent `TSBADDataset` run unit containing
-   one `TimeSeries` and one temporal boundary.
-2. `TSBADCollectionLoader` loads one exact series or lazily streams CSV files.
-   Names such as NAB and SMD are source metadata groups used for filtering.
-3. `TSBADAdapter` calls the upstream ACF window estimator and evaluation
-   metrics without exposing upstream import details to an experiment.
+- `load_tsb_ad_csv()` reads a single CSV file.
+- `TSBADCollectionLoader` reads the boundary from each filename and returns a
+  ready-to-use `TimeSeriesSplit`.
+- `TSBADAdapter` provides the two upstream operations Detectiv needs: ACF window
+  selection and benchmark metrics.
 
 ## 1. Initialize The Upstream Package
 
@@ -61,67 +60,56 @@ data/
 The tracked directory placeholders establish this layout, but no benchmark CSV
 data is committed to Detectiv.
 
-## 3. Load One Series
+## 3. Prepare One Series
 
-Load one exact CSV series for an interactive experiment:
+This is the complete TSB-AD-specific setup for one experiment:
 
 ```python
 from pathlib import Path
 
-from detectiv.benchmarks.tsb_ad import TSBADCollection, TSBADCollectionLoader
+from detectiv.benchmarks.tsb_ad import (
+    TSBADAdapter,
+    TSBADCollection,
+    TSBADCollectionLoader,
+)
+from detectiv.callbacks import MetricsCallback
 
 loader = TSBADCollectionLoader(Path("data"))
-series_id = "001_NAB_id_1_Facility_tr_1007_1st_2014"
-benchmark = loader.load_series(TSBADCollection.UNIVARIATE, series_id)
+split = loader.load_series(
+    TSBADCollection.UNIVARIATE,
+    "001_NAB_id_1_Facility_tr_1007_1st_2014",
+)
 
-series = benchmark.series
-boundary = benchmark.boundary
+adapter = TSBADAdapter(Path("external/tsb-ad"))
+window_length = adapter.acf_window(split.train)
+metrics = MetricsCallback(adapter.evaluator(sliding_window=window_length))
 ```
 
-Discover or filter source groups without combining their files:
-
-```python
-groups = loader.source_groups(TSBADCollection.UNIVARIATE)
-for benchmark in loader.iter_collection(TSBADCollection.UNIVARIATE, source_group="NAB"):
-    inspect(benchmark.series, benchmark.boundary)
-```
+Use `split` as the input to the normal Detectiv preprocessing and image pipeline.
+Pass `metrics` in the reconstruction scenario's `callbacks` argument. Labels
+flow from the test series into the report, so they do not need to be supplied
+again.
 
 ## 4. Stream A Collection
 
 Iteration is deterministic by filename and loads one CSV only when requested:
 
 ```python
-for benchmark in loader.iter_collection(TSBADCollection.UNIVARIATE):
-    run(benchmark.series, benchmark.boundary)
+for split in loader.iter_collection(TSBADCollection.UNIVARIATE):
+    run(split)
 ```
 
-## 5. Evaluate Point Scores
-
-`TSBADAdapter` is Detectiv's boundary to the initialized upstream package. It
-provides the ACF window estimator and creates a configured evaluator. Register
-that evaluator as a scenario callback; labels flow from the source `TimeSeries`
-into the reconstruction report and are not passed again:
+Filter a collection by its original source dataset when needed:
 
 ```python
-from pathlib import Path
-
-from detectiv.benchmarks.tsb_ad import TSBADAdapter
-from detectiv.callbacks import MetricsCallback
-
-adapter = TSBADAdapter(Path("external/tsb-ad"))
-split = series.split(boundary)
-window = adapter.acf_window(split.train)
-evaluator = adapter.evaluator(sliding_window=window)
-scenario = ReconstructionScenario(
-    # ...
-    callbacks=(MetricsCallback(evaluator),),
+groups = loader.source_groups(TSBADCollection.UNIVARIATE)
+nab_splits = loader.iter_collection(
+    TSBADCollection.UNIVARIATE,
+    source_group="NAB",
 )
-report = scenario.run()
-artifacts = report.write(output_directory)
-print(report.summary())
-print(artifacts.manifest)
-print(artifacts.point_scores)
 ```
+
+## Evaluation Method
 
 Detectiv deliberately fits preprocessing, projection, and the model on the train
 prefix only. Compute ACF from `split.train`, then score and evaluate only the
@@ -136,9 +124,9 @@ result as `<plan>.<propagation>.<metric>` in `report.metrics`.
 
 ## Integration Boundaries
 
-- `TSBADCsvLoader` reads one benchmark CSV into a `TimeSeries`.
+- `load_tsb_ad_csv()` reads one benchmark CSV into a `TimeSeries`.
 - `TSBADCollectionLoader` understands filenames, source-group metadata, and
-  temporal boundaries without grouping files into training datasets.
+  returns independent temporal splits without grouping files into datasets.
 - `TSBADAdapter` owns the dependency on the upstream Python package and its
   metric functions.
 

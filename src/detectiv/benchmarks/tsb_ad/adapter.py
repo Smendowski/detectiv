@@ -3,17 +3,15 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass
 from importlib import import_module, util
-from operator import index
 from pathlib import Path
 from types import ModuleType
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
+from detectiv.benchmarks.tsb_ad.evaluation import TSBADMetricEvaluator
 from detectiv.time_series import TimeSeries
-
-if TYPE_CHECKING:
-    from detectiv.benchmarks.tsb_ad.evaluation import TSBADEvaluator
+from detectiv.utils import integer
 
 
 @dataclass(frozen=True)
@@ -62,7 +60,9 @@ class TSBADAdapter:
             RuntimeError: If ``TSB_AD`` is already loaded from another source
                 directory.
         """
-        feature_index = _nonnegative_index(feature_index, "feature_index")
+        feature_index = integer(feature_index, "feature_index")
+        if feature_index < 0:
+            raise ValueError("feature_index must be non-negative")
         if feature_index >= series.n_features:
             raise ValueError("feature_index must identify a feature in the series")
         if series.n_timesteps < 2:
@@ -77,7 +77,7 @@ class TSBADAdapter:
         sliding_window: int,
         version: str = "opt",
         thresholds: int = 250,
-    ) -> TSBADEvaluator:
+    ) -> TSBADMetricEvaluator:
         """Create a metric evaluator configured for this TSB-AD source.
 
         Args:
@@ -93,10 +93,8 @@ class TSBADAdapter:
             ValueError: If ``sliding_window`` or ``thresholds`` is not a
                 positive integer.
         """
-        from detectiv.benchmarks.tsb_ad.evaluation import TSBADEvaluator
-
-        return TSBADEvaluator(
-            repository=self,
+        return TSBADMetricEvaluator(
+            adapter=self,
             sliding_window=sliding_window,
             version=version,
             thresholds=thresholds,
@@ -122,16 +120,16 @@ class TSBADAdapter:
         return {name: float(value) for name, value in metrics.items()}
 
     def _get_metrics(self) -> Any:
-        self._package()
+        self._load_package()
         metric_module = import_module("TSB_AD.evaluation.metrics")
         return metric_module.get_metrics
 
     def _find_length_rank(self) -> Any:
-        self._package()
+        self._load_package()
         window_module = import_module("TSB_AD.utils.slidingWindows")
         return window_module.find_length_rank
 
-    def _package(self) -> ModuleType:
+    def _load_package(self) -> ModuleType:
         package_directory = self.source_directory / "TSB_AD"
         existing = sys.modules.get("TSB_AD")
         if existing is not None:
@@ -141,6 +139,11 @@ class TSBADAdapter:
                 )
             return existing
 
+        if any(name.startswith("TSB_AD.") for name in sys.modules):
+            raise RuntimeError("TSB_AD submodules are loaded without their package")
+
+        # Load by path so imports always use the configured checkout.
+        modules_before = set(sys.modules)
         specification = util.spec_from_file_location(
             "TSB_AD",
             package_directory / "__init__.py",
@@ -153,7 +156,12 @@ class TSBADAdapter:
         try:
             specification.loader.exec_module(package)
         except BaseException:
-            del sys.modules["TSB_AD"]
+            # A failed import can leave child modules cached in sys.modules.
+            for name in tuple(sys.modules):
+                if name not in modules_before and (
+                    name == "TSB_AD" or name.startswith("TSB_AD.")
+                ):
+                    sys.modules.pop(name, None)
             raise
         return package
 
@@ -163,15 +171,3 @@ def _package_directory(package: ModuleType) -> Path | None:
     for location in locations:
         return Path(location).resolve()
     return None
-
-
-def _nonnegative_index(value: int, name: str) -> int:
-    if isinstance(value, bool):
-        raise ValueError(f"{name} must be an integer")
-    try:
-        value = index(value)
-    except TypeError as error:
-        raise ValueError(f"{name} must be an integer") from error
-    if value < 0:
-        raise ValueError(f"{name} must be non-negative")
-    return value

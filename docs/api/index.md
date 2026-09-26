@@ -5,7 +5,7 @@ Detectiv's API reference follows the public package layout under
 implementation module.
 
 ```python
-from detectiv.benchmarks.tsb_ad import TSBADAdapter, TSBADCsvLoader
+from detectiv.benchmarks.tsb_ad import TSBADAdapter, load_tsb_ad_csv
 from detectiv.callbacks import (
     BaseCallback,
     MlflowCallback,

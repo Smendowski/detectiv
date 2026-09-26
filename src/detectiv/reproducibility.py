@@ -22,8 +22,10 @@ class ReproducibilitySettings:
         random.seed(self.seed)
         np.random.seed(self.seed)
         torch.manual_seed(self.seed)
+
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(self.seed)
+
         torch.use_deterministic_algorithms(self.deterministic_algorithms)
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = self.deterministic_algorithms

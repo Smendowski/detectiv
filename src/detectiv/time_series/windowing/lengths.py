@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from operator import index
 
 import numpy as np
 from statsmodels.tsa.stattools import acf
 
 from detectiv.time_series import TimeSeries
+from detectiv.utils import integer
 
 
 class WindowLengthStrategy(ABC):
@@ -21,7 +21,9 @@ class FixedWindowLength(WindowLengthStrategy):
 
     def __init__(self, length: int) -> None:
         """Create a strategy that always returns ``length``."""
-        length = _positive_index(length, "length")
+        length = integer(length, "length")
+        if length <= 0:
+            raise ValueError("length must be positive")
         self.length = length
 
     def select(self, series: TimeSeries) -> int:
@@ -41,9 +43,15 @@ class ACFWindowLength(WindowLengthStrategy):
         threshold_multiplier: float = 1.96,
     ) -> None:
         """Configure the feature, bounds, and finite threshold multiplier."""
-        feature_index = _nonnegative_index(feature_index, "feature_index")
-        min_length = _positive_index(min_length, "min_length")
-        max_length = _positive_index(max_length, "max_length")
+        feature_index = integer(feature_index, "feature_index")
+        min_length = integer(min_length, "min_length")
+        max_length = integer(max_length, "max_length")
+        if feature_index < 0:
+            raise ValueError("feature_index must be non-negative")
+        if min_length <= 0:
+            raise ValueError("min_length must be positive")
+        if max_length <= 0:
+            raise ValueError("max_length must be positive")
         if max_length < min_length:
             raise ValueError("max_length must not be less than min_length")
         if not np.isfinite(threshold_multiplier) or threshold_multiplier <= 0:
@@ -72,26 +80,3 @@ class ACFWindowLength(WindowLengthStrategy):
         candidates = np.flatnonzero(np.abs(acf_values[1:]) < threshold)
         length = int(candidates[0] + 1) if len(candidates) else max_lag // 2
         return int(np.clip(length, self.min_length, self.max_length))
-
-
-def _positive_index(value: int, name: str) -> int:
-    value = _index_value(value, name)
-    if value <= 0:
-        raise ValueError(f"{name} must be positive")
-    return value
-
-
-def _nonnegative_index(value: int, name: str) -> int:
-    value = _index_value(value, name)
-    if value < 0:
-        raise ValueError(f"{name} must be non-negative")
-    return value
-
-
-def _index_value(value: int, name: str) -> int:
-    if isinstance(value, bool):
-        raise ValueError(f"{name} must be an integer")
-    try:
-        return index(value)
-    except TypeError as error:
-        raise ValueError(f"{name} must be an integer") from error

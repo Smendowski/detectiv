@@ -1,11 +1,12 @@
 import sys
 from collections.abc import Iterator
 from pathlib import Path
+from types import ModuleType
 
 import numpy as np
 import pytest
 
-from detectiv.benchmarks.tsb_ad import TSBADAdapter, TSBADEvaluator
+from detectiv.benchmarks.tsb_ad import TSBADAdapter
 from detectiv.callbacks import MetricsCallback
 from detectiv.models.autoencoders import TrainingHistory
 from detectiv.reports import ReconstructionReport
@@ -29,7 +30,7 @@ def test_adapter_reuses_upstream_functions_without_changing_sys_path(
     window = adapter.acf_window(
         TimeSeries(np.array([[1.0, 2.0], [3.0, 4.0]])), feature_index=1
     )
-    evaluator: TSBADEvaluator = adapter.evaluator(sliding_window=window, thresholds=7)
+    evaluator = adapter.evaluator(sliding_window=window, thresholds=7)
     metrics = evaluator.evaluate(np.array([0.1, 0.9]), np.array([0, 1]))
 
     assert window == 6
@@ -91,14 +92,14 @@ def test_evaluator_requires_integral_positive_configuration(
 def test_evaluator_rejects_labels_before_calling_tsb_ad(tmp_path: Path) -> None:
     evaluator = TSBADAdapter(_source(tmp_path)).evaluator(sliding_window=1)
 
-    with pytest.raises(ValueError, match="boolean or integer"):
+    with pytest.raises(ValueError, match="binary"):
         evaluator.evaluate(np.array([0.1, 0.9]), np.array([0.2, 1.8]))
 
 
-@pytest.mark.parametrize("labels", (np.array([False, True]), np.array([0, 1])))
-def test_evaluator_accepts_boolean_and_integer_labels(
-    tmp_path: Path, labels: np.ndarray
-) -> None:
+@pytest.mark.parametrize(
+    "labels", (np.array([False, True]), np.array([0, 1]), np.array([0.0, 1.0]))
+)
+def test_evaluator_accepts_binary_labels(tmp_path: Path, labels: np.ndarray) -> None:
     evaluator = TSBADAdapter(_source(tmp_path)).evaluator(sliding_window=1)
 
     metrics = evaluator.evaluate(np.array([0.1, 0.9]), labels)
@@ -106,14 +107,40 @@ def test_evaluator_accepts_boolean_and_integer_labels(
     assert metrics == {"thresholds": 250.0, "window": 1.0}
 
 
-@pytest.mark.parametrize("labels", (np.array([0.0, 1.0]), np.array(["0", "1"])))
-def test_evaluator_rejects_non_integer_label_representations(
+@pytest.mark.parametrize("labels", (np.array([0.2, 1.0]), np.array(["0", "1"])))
+def test_evaluator_rejects_nonbinary_label_representations(
     tmp_path: Path, labels: np.ndarray
 ) -> None:
     evaluator = TSBADAdapter(_source(tmp_path)).evaluator(sliding_window=1)
 
-    with pytest.raises(ValueError, match="boolean or integer"):
+    with pytest.raises(ValueError, match="binary"):
         evaluator.evaluate(np.array([0.1, 0.9]), labels)
+
+
+def test_adapter_rejects_orphaned_upstream_submodules(tmp_path: Path) -> None:
+    sys.modules["TSB_AD.evaluation.metrics"] = ModuleType("TSB_AD.evaluation.metrics")
+    adapter = TSBADAdapter(_source(tmp_path))
+
+    with pytest.raises(RuntimeError, match="submodules"):
+        adapter.acf_window(TimeSeries(np.array([1.0, 2.0])))
+
+
+def test_adapter_removes_modules_introduced_by_failed_import(tmp_path: Path) -> None:
+    source = _source(tmp_path)
+    package = source / "TSB_AD"
+    _write(package / "broken.py", "")
+    _write(
+        package / "__init__.py",
+        "from . import broken\nraise RuntimeError('broken')\n",
+    )
+    adapter = TSBADAdapter(source)
+
+    with pytest.raises(RuntimeError, match="broken"):
+        adapter.acf_window(TimeSeries(np.array([1.0, 2.0])))
+
+    assert not any(
+        name == "TSB_AD" or name.startswith("TSB_AD.") for name in sys.modules
+    )
 
 
 def _source(tmp_path: Path) -> Path:

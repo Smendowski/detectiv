@@ -8,7 +8,7 @@ from typing import cast
 
 import numpy as np
 
-from detectiv.callbacks.base import Callback
+from detectiv.callbacks.base import BaseCallback
 from detectiv.images import ImageDataset
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.protocols import TrainingMode
@@ -65,7 +65,7 @@ class ReconstructionScenario(BaseScenario[ReconstructionReport]):
         model: Autoencoder,
         training_mode: TrainingMode,
         scoring_plans: Sequence[ReconstructionScoringPlan],
-        callbacks: Sequence[Callback[ReconstructionReport]] = (),
+        callbacks: Sequence[BaseCallback[ReconstructionReport]] = (),
         trainer: AutoencoderTrainer | None = None,
         reproducibility: ReproducibilitySettings | None = None,
     ) -> None:

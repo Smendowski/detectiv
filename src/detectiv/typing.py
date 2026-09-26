@@ -1,5 +1,4 @@
 from collections.abc import Mapping, Sequence
 
-type JSONValue = (
-    bool | int | float | str | Sequence[JSONValue] | Mapping[str, JSONValue] | None
-)
+type JSONScalar = bool | int | float | str | None
+type JSONValue = JSONScalar | Sequence[JSONValue] | Mapping[str, JSONValue]

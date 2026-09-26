@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from operator import index
+
+from detectiv.utils import integer
 
 
 @dataclass(frozen=True)
@@ -12,9 +13,9 @@ class WindowReference:
     valid_length: int
 
     def __post_init__(self) -> None:
-        start = _index_value(self.start, "start")
-        stop = _index_value(self.stop, "stop")
-        valid_length = _index_value(self.valid_length, "valid_length")
+        start = integer(self.start, "start")
+        stop = integer(self.stop, "stop")
+        valid_length = integer(self.valid_length, "valid_length")
         if not self.series_id:
             raise ValueError("series_id must not be empty")
         if start < 0 or stop <= start:
@@ -24,12 +25,3 @@ class WindowReference:
         object.__setattr__(self, "start", start)
         object.__setattr__(self, "stop", stop)
         object.__setattr__(self, "valid_length", valid_length)
-
-
-def _index_value(value: int, name: str) -> int:
-    if isinstance(value, bool):
-        raise ValueError(f"{name} must be an integer")
-    try:
-        return index(value)
-    except TypeError as error:
-        raise ValueError(f"{name} must be an integer") from error

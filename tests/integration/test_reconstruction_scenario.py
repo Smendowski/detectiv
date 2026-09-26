@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 import numpy as np
 import pytest
 
-from detectiv.callbacks import BaseCallback, Callback, TimingCallback
+from detectiv.callbacks import BaseCallback, TimingCallback
 from detectiv.images import ImageDataset, ImageShape, ImageSource
 from detectiv.models.autoencoders import Autoencoder, AutoencoderTrainer
 from detectiv.models.autoencoders.decoders import CNNDecoder
@@ -35,19 +35,19 @@ class ArrayImageSource(ImageSource):
         return self.values[index]
 
 
-class FailingFinishedCallback(BaseCallback[object]):
+class FailingFinishedCallback(BaseCallback[ReconstructionReport]):
     @property
     def name(self) -> str:
         return "failing_finished"
 
-    def on_run_finished(self, result: object) -> None:
+    def on_run_finished(self, result: ReconstructionReport) -> None:
         raise RuntimeError("callback failure")
 
     def on_run_failed(self, error: BaseException) -> None:
         raise AssertionError("finished callbacks must not receive failure events")
 
 
-class RecordingCallback(BaseCallback[object]):
+class RecordingCallback(BaseCallback[ReconstructionReport]):
     def __init__(
         self,
         name: str,
@@ -73,7 +73,7 @@ class RecordingCallback(BaseCallback[object]):
     def on_epoch_finished(self, event: object) -> None:
         self.events.append(f"{self.name}:epoch")
 
-    def on_run_finished(self, result: object) -> None:
+    def on_run_finished(self, result: ReconstructionReport) -> None:
         self.events.append(f"{self.name}:finished")
 
     def on_run_failed(self, error: BaseException) -> None:
@@ -427,7 +427,7 @@ def _scenario(
     train: ImageDataset,
     test: ImageDataset,
     *,
-    callbacks: tuple[Callback[ReconstructionReport], ...] = (),
+    callbacks: tuple[BaseCallback[ReconstructionReport], ...] = (),
     reproducibility: ReproducibilitySettings | None = None,
 ) -> ReconstructionScenario:
     return ReconstructionScenario(

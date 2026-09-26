@@ -10,6 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from detectiv.time_series.series import TimeSeries
+from detectiv.utils import integer
 
 
 class WindowMode(StrEnum):
@@ -83,8 +84,8 @@ class WindowSpec:
         if labeling is _DEFAULT_LABELING:
             labeling = WindowLabelingStrategy.OR_POOLING
 
-        length = _positive_index(length, "length")
-        stride = None if stride is None else _positive_index(stride, "stride")
+        length = integer(length, "length")
+        stride = None if stride is None else integer(stride, "stride")
         if length <= 0:
             raise ValueError("length must be positive")
         if stride is not None and stride <= 0:
@@ -122,15 +123,6 @@ class WindowSpec:
     def windower(self) -> Windower:
         """Create a windower using this specification's geometry and tail policy."""
         return Windower(self.length, self.stride, self.tail)
-
-
-def _positive_index(value: int, name: str) -> int:
-    if isinstance(value, bool):
-        raise ValueError(f"{name} must be an integer")
-    try:
-        return index(value)
-    except TypeError as error:
-        raise ValueError(f"{name} must be an integer") from error
 
 
 @dataclass(frozen=True)

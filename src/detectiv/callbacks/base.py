@@ -1,66 +1,10 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from detectiv.models.autoencoders import TrainingEpochEvent
     from detectiv.reports import RunContext
-
-
-class Callback[T](Protocol):
-    """Structural lifecycle contract used by scenario callback dispatch."""
-
-    @property
-    def name(self) -> str:
-        """Return the callback's unique scenario registration name.
-
-        Returns:
-            The callback registration name.
-        """
-        ...
-
-    def on_run_started(self) -> None:
-        """Initialize callback state before scenario work begins."""
-        ...
-
-    def on_run_context(self, context: RunContext) -> None:
-        """Receive the shared run context.
-
-        Args:
-            context: Run identity and output-registration context.
-        """
-        ...
-
-    def on_epoch_finished(self, event: TrainingEpochEvent) -> None:
-        """Handle one completed training epoch.
-
-        Args:
-            event: Data recorded for the completed epoch.
-        """
-        ...
-
-    def on_run_finished(self, result: T) -> T | None:
-        """Handle or replace a successful result.
-
-        Args:
-            result: Current result after preceding callbacks.
-
-        Returns:
-            A replacement result, or `None` to preserve the current result.
-        """
-        ...
-
-    def on_run_failed(self, error: BaseException) -> None:
-        """Handle a scenario failure.
-
-        Args:
-            error: Original scenario exception.
-        """
-        ...
-
-    def on_run_closed(self) -> None:
-        """Release callback resources after success or failure."""
-        ...
 
 
 class BaseCallback[T]:

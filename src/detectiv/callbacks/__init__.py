@@ -1,5 +1,5 @@
 from detectiv.callbacks.artifacts import ReportArtifactCallback
-from detectiv.callbacks.base import BaseCallback, Callback
+from detectiv.callbacks.base import BaseCallback
 from detectiv.callbacks.metrics import MetricsCallback
 from detectiv.callbacks.timing import TimingCallback
 from detectiv.callbacks.tracking import (
@@ -10,7 +10,6 @@ from detectiv.callbacks.tracking import (
 
 __all__ = [
     "BaseCallback",
-    "Callback",
     "MetricsCallback",
     "MlflowCallback",
     "ReconstructionMlflowCallback",

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from operator import index
-from typing import SupportsIndex, cast
+
+from detectiv.utils import integer
 
 
 @dataclass(frozen=True)
@@ -11,11 +11,11 @@ class TemporalBoundary:
     validation_end: int | None = None
 
     def __post_init__(self) -> None:
-        train_end = _index_value(self.train_end, "train_end")
+        train_end = integer(self.train_end, "train_end")
         validation_end = (
             None
             if self.validation_end is None
-            else _index_value(self.validation_end, "validation_end")
+            else integer(self.validation_end, "validation_end")
         )
         if train_end <= 0:
             raise ValueError("train_end must be positive")
@@ -33,7 +33,7 @@ class TemporalHoldout:
     validation_fraction: float
 
     def __post_init__(self) -> None:
-        test_start = _index_value(self.test_start, "test_start")
+        test_start = integer(self.test_start, "test_start")
         if test_start <= 1:
             raise ValueError("test_start must leave room for training and validation")
         if not 0 < self.validation_fraction < 1:
@@ -48,12 +48,3 @@ class TemporalHoldout:
             train_end=self.test_start - validation_length,
             validation_end=self.test_start,
         )
-
-
-def _index_value(value: object, name: str) -> int:
-    if isinstance(value, bool):
-        raise ValueError(f"{name} must be an integer")
-    try:
-        return index(cast(SupportsIndex, value))
-    except TypeError as error:
-        raise ValueError(f"{name} must be an integer") from error

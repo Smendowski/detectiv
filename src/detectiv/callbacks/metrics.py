@@ -66,6 +66,7 @@ class MetricsCallback(BaseCallback[ReconstructionReport]):
                     )
 
         metrics: dict[str, float] = {}
+
         for plan, propagations in result.point_scores.items():
             for propagation, point_scores in propagations.items():
                 evaluated = self.evaluator.evaluate(point_scores, labels)

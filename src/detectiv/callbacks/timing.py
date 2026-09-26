@@ -1,9 +1,10 @@
 from time import perf_counter
+from typing import Any
 
 from detectiv.callbacks.base import BaseCallback
 
 
-class TimingCallback(BaseCallback[object]):
+class TimingCallback(BaseCallback[Any]):
     """Measure elapsed wall-clock time between run start and terminal hook.
 
     `elapsed_seconds` is `None` until a started run finishes or fails. The
@@ -26,7 +27,7 @@ class TimingCallback(BaseCallback[object]):
         return "timing"
 
     def on_run_started(self) -> None:
-        """Reset prior timing and start a new monotonic timer."""
+        """Reset prior timing and start a new timer."""
         self.elapsed_seconds = None
         self._started_at = perf_counter()
 

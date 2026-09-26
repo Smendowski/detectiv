@@ -6,16 +6,15 @@ import pytest
 from detectiv.benchmarks.tsb_ad import (
     TSBADCollection,
     TSBADCollectionLoader,
-    TSBADCsvLoader,
+    load_tsb_ad_csv,
 )
-from detectiv.time_series import TimeSeries
 
 
 def test_csv_loader_preserves_feature_names_and_single_rows(tmp_path: Path) -> None:
     path = tmp_path / "001_NAB_id_1_Facility_tr_1_1st_2.csv"
     path.write_text("left,right,Label\n1.0,2.0,0\n", encoding="utf-8")
 
-    series = TSBADCsvLoader().load(path)
+    series = load_tsb_ad_csv(path)
 
     assert series.series_id == path.stem
     assert series.feature_names == ("left", "right")
@@ -23,7 +22,7 @@ def test_csv_loader_preserves_feature_names_and_single_rows(tmp_path: Path) -> N
     np.testing.assert_array_equal(series.labels, [False])
 
 
-def test_collection_yields_each_csv_as_an_independent_run_unit(tmp_path: Path) -> None:
+def test_collection_yields_each_csv_as_an_independent_split(tmp_path: Path) -> None:
     collection = tmp_path / TSBADCollection.MULTIVARIATE
     collection.mkdir()
     first = collection / "001_SMD_id_1_Facility_tr_2_1st_3.csv"
@@ -37,50 +36,37 @@ def test_collection_yields_each_csv_as_an_independent_run_unit(tmp_path: Path) -
     _write_csv(third, "first,second,Label\n1,2,0\n3,4,0\n5,6,1\n7,8,1\n")
 
     loader = TSBADCollectionLoader(tmp_path)
-    datasets = tuple(loader.iter_collection("TSB-AD-M"))
+    splits = tuple(loader.iter_collection("TSB-AD-M"))
 
     assert loader.source_groups(TSBADCollection.MULTIVARIATE) == ("SMD", "MSL")
-    assert [item.series.series_id for item in datasets] == [
+    assert [split.train.series_id for split in splits] == [
         first.stem,
         second.stem,
         third.stem,
     ]
-    assert [item.boundary.train_end for item in datasets] == [2, 3, 2]
-    assert datasets[0].series.metadata["source_group"] == "SMD"
+    assert [split.train.n_timesteps for split in splits] == [2, 3, 2]
     assert [
-        item.series.series_id
-        for item in loader.iter_collection("TSB-AD-M", source_group="MSL")
+        split.train.series_id
+        for split in loader.iter_collection("TSB-AD-M", source_group="MSL")
     ] == [third.stem]
     loaded = loader.load_series(TSBADCollection.MULTIVARIATE, third.stem)
-    assert loaded.series.series_id == third.stem
-    assert loaded.series.split(loaded.boundary).train.n_timesteps == 2
+    assert loaded.train.series_id == third.stem
+    assert loaded.train.n_timesteps == 2
 
 
-def test_collection_loader_is_lazy(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_collection_loader_is_lazy(tmp_path: Path) -> None:
     collection = tmp_path / TSBADCollection.MULTIVARIATE
     collection.mkdir()
     first = collection / "001_SMD_id_1_Facility_tr_1_1st_2.csv"
     second = collection / "002_MSL_id_1_Sensor_tr_1_1st_2.csv"
-    values = "first,second,Label\n1,2,0\n3,4,1\n"
-    _write_csv(first, values)
-    _write_csv(second, values)
+    _write_csv(first, "first,second,Label\n1,2,0\n3,4,1\n")
+    _write_csv(second, "first,second,Label\ninvalid,row,values\n")
     loader = TSBADCollectionLoader(tmp_path)
-    parsed: list[Path] = []
-    original_load = loader._csv_loader.load
+    splits = loader.iter_collection(TSBADCollection.MULTIVARIATE)
 
-    def record_load(path: Path) -> TimeSeries:
-        parsed.append(path)
-        return original_load(path)
-
-    monkeypatch.setattr(loader._csv_loader, "load", record_load)
-    datasets = loader.iter_collection(TSBADCollection.MULTIVARIATE)
-
-    assert next(datasets).series.series_id == first.stem
-    assert parsed == [first]
-    assert next(datasets).series.series_id == second.stem
-    assert parsed == [first, second]
+    assert next(splits).train.series_id == first.stem
+    with pytest.raises(ValueError):
+        next(splits)
 
 
 @pytest.mark.parametrize(
@@ -90,7 +76,7 @@ def test_collection_loader_is_lazy(
         (
             "001_NAB_id_1_Facility_tr_2_1st_2.csv",
             "value,Label\n1,0\n2,1\n",
-            "train boundary",
+            "train_end",
         ),
         (
             "001_NAB_id_1_Facility_tr_1_1st_2.csv",
@@ -99,7 +85,7 @@ def test_collection_loader_is_lazy(
         ),
     ],
 )
-def test_collection_loader_rejects_invalid_run_units(
+def test_collection_loader_rejects_invalid_series(
     tmp_path: Path, filename: str, values: str, message: str
 ) -> None:
     collection = tmp_path / TSBADCollection.UNIVARIATE
@@ -120,6 +106,11 @@ def test_collection_loader_rejects_unknown_series(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="does not contain series"):
         TSBADCollectionLoader(tmp_path).load_series("TSB-AD-U", "missing")
+
+
+def test_csv_loader_preserves_filesystem_errors(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError):
+        load_tsb_ad_csv(tmp_path / "missing.csv")
 
 
 def _write_csv(path: Path, values: str) -> None:
